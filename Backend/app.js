@@ -2,6 +2,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const app = express();
 const cookieParser = require('cookie-parser');
 const connectToDb = require('./db/db');
@@ -13,7 +14,11 @@ const paymentRoutes = require('./routes/payment.routes');
 
 connectToDb();
 
-app.use(cors());
+app.use(compression());
+app.use(cors({
+    origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : '*',
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
