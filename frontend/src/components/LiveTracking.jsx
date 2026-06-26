@@ -73,8 +73,32 @@ const LiveTracking = ({ pickup, destination, ride }) => {
             setDriverPosition({ latitude: data.latitude, longitude: data.longitude });
         });
 
+        let intervalId;
+        const pollCaptainLocation = async () => {
+            if (ride?.captain?._id) {
+                try {
+                    const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/captains/location/${ride.captain._id}`, {
+                        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                    });
+                    if (response.data?.location?.coordinates) {
+                        const [lng, lat] = response.data.location.coordinates;
+                        console.log("Polling captain location:", lat, lng);
+                        setDriverPosition({ latitude: lat, longitude: lng });
+                    }
+                } catch (err) {
+                    console.log("Error polling captain location:", err.message);
+                }
+            }
+        };
+
+        if (ride?.captain?._id) {
+            intervalId = setInterval(pollCaptainLocation, 5000);
+            pollCaptainLocation();
+        }
+
         return () => {
             socket.off('captain-location-updated');
+            if (intervalId) clearInterval(intervalId);
         };
     }, [socket, ride]);
 

@@ -39,6 +39,19 @@ router.post('/end-ride',
     rideController.endRide
 )
 
+router.get('/active-ride',
+    authMiddleware.authUser,
+    rideController.getActiveRideByUser
+)
 
+router.get('/active-ride-captain',
+    authMiddleware.authCaptain,
+    rideController.getActiveRideByCaptain
+)
+
+router.get('/pending-rides',
+    authMiddleware.authCaptain,
+    rideController.getPendingRides
+)
 
 module.exports = router;

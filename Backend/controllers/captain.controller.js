@@ -1,6 +1,6 @@
 const captainModel = require('../models/captain.model');
 const captainService = require('../services/captain.service');
-const blackListTokenModel = require('../models/blackListToken.model');
+const blackListTokenModel = require('../models/blacklistToken.model');
 const { validationResult } = require('express-validator');
 
 
@@ -77,4 +77,36 @@ module.exports.logoutCaptain = async (req, res, next) => {
     res.clearCookie('token');
 
     res.status(200).json({ message: 'Logout successfully' });
+}
+
+module.exports.getCaptainLocation = async (req, res, next) => {
+    try {
+        const captain = await captainModel.findById(req.params.id);
+        if (!captain) {
+            return res.status(404).json({ message: 'Captain not found' });
+        }
+        return res.status(200).json({ location: captain.location });
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
+}
+
+module.exports.updateLocation = async (req, res, next) => {
+    try {
+        const { location } = req.body;
+        if (!location || !location.ltd || !location.lng) {
+            return res.status(400).json({ message: 'Invalid location data' });
+        }
+
+        const updatedCaptain = await captainModel.findByIdAndUpdate(req.captain._id, {
+            location: {
+                type: 'Point',
+                coordinates: [location.lng, location.ltd]
+            }
+        }, { new: true });
+
+        return res.status(200).json({ message: 'Location updated successfully', location: updatedCaptain.location });
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
 }

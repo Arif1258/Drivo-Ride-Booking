@@ -75,6 +75,42 @@ const Home = () => {
         };
     }, [socket, navigate]);
 
+    useEffect(() => {
+        let intervalId;
+
+        const pollActiveRide = async () => {
+            try {
+                const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/rides/active-ride`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                });
+                if (response.data) {
+                    const activeRide = response.data;
+                    console.log("Polling active ride:", activeRide.status);
+
+                    if (activeRide.status === 'accepted') {
+                        setVehicleFound(false);
+                        setWaitingForDriver(true);
+                        setRide(activeRide);
+                    } else if (activeRide.status === 'ongoing') {
+                        setWaitingForDriver(false);
+                        navigate('/riding', { state: { ride: activeRide } });
+                    }
+                }
+            } catch (err) {
+                console.log("Active ride polling error/status:", err.message);
+            }
+        };
+
+        if (vehicleFound || waitingForDriver) {
+            intervalId = setInterval(pollActiveRide, 3000);
+            pollActiveRide();
+        }
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [vehicleFound, waitingForDriver, navigate]);
+
     const handlePickupChange = async (e) => {
         setPickup(e.target.value);
         try {

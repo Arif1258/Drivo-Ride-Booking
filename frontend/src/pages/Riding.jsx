@@ -21,7 +21,6 @@ const Riding = () => {
     useEffect(() => {
         socket.on("ride-ended", (data) => {
             console.log("Ride ended event received from socket:", data);
-            // Update ride data status to payment-pending
             setRide(prev => ({ ...prev, status: 'payment-pending' }));
             setShowPayment(true);
         });
@@ -30,6 +29,37 @@ const Riding = () => {
             socket.off("ride-ended");
         };
     }, [socket]);
+
+    useEffect(() => {
+        let intervalId;
+
+        const pollRideEnded = async () => {
+            try {
+                const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/rides/active-ride`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                });
+                if (response.data) {
+                    const currentRide = response.data;
+                    console.log("Polling ride state in Riding.jsx:", currentRide.status);
+                    if (currentRide.status === 'payment-pending') {
+                        setRide(currentRide);
+                        setShowPayment(true);
+                    }
+                }
+            } catch (err) {
+                console.log("Error checking active ride in Riding:", err.message);
+            }
+        };
+
+        if (ride && ride.status !== 'payment-pending') {
+            intervalId = setInterval(pollRideEnded, 3000);
+            pollRideEnded();
+        }
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [ride]);
 
     const handlePayment = async () => {
         if (paymentMethod === 'card' && (!cardDetails.number || !cardDetails.expiry || !cardDetails.cvv)) {

@@ -33,14 +33,24 @@ const CaptainHome = () => {
         });
         const updateLocation = () => {
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
+                navigator.geolocation.getCurrentPosition(async position => {
+                    const loc = {
+                        ltd: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
                     socket.emit('update-location-captain', {
                         userId: captain._id,
-                        location: {
-                            ltd: position.coords.latitude,
-                            lng: position.coords.longitude
-                        }
+                        location: loc
                     });
+                    try {
+                        await axios.post(`${import.meta.env.VITE_BASE_URL}/captains/update-location`, {
+                            location: loc
+                        }, {
+                            headers: { Authorization: `Bearer ${localStorage.getItem('captain-token')}` }
+                        });
+                    } catch (err) {
+                        console.log("REST location update error:", err.message);
+                    }
                 });
             }
         };
@@ -76,6 +86,34 @@ const CaptainHome = () => {
             socket.off('new-ride');
         };
     }, [socket]);
+
+    useEffect(() => {
+        let intervalId;
+
+        const pollPendingRides = async () => {
+            try {
+                const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/rides/pending-rides`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('captain-token')}` }
+                });
+                if (response.data && response.data.length > 0) {
+                    if (!ridePopupPanel && !confirmRidePopupPanel) {
+                        console.log("Polling found pending rides:", response.data);
+                        setRide(response.data[0]);
+                        setRidePopupPanel(true);
+                    }
+                }
+            } catch (err) {
+                console.log("Pending rides polling error:", err.message);
+            }
+        };
+
+        intervalId = setInterval(pollPendingRides, 3000);
+        pollPendingRides();
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [captain, ridePopupPanel, confirmRidePopupPanel]);
 
     async function confirmRide() {
         await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/confirm`, {
