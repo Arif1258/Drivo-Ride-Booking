@@ -11,8 +11,12 @@ const captainRoutes = require('./routes/captain.routes');
 const mapsRoutes = require('./routes/maps.routes');
 const rideRoutes = require('./routes/ride.routes');
 const paymentRoutes = require('./routes/payment.routes');
+const aiRoutes = require('./routes/ai.routes');
+const { seedHistoricalRidesIfEmpty } = require('./services/ai/demandPredictionService');
 
-connectToDb();
+connectToDb().then(() => {
+    seedHistoricalRidesIfEmpty();
+});
 
 app.use(compression());
 app.use(cors({
@@ -34,6 +38,8 @@ app.use('/captains', captainRoutes);
 app.use('/maps', mapsRoutes);
 app.use('/rides', rideRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/ai', aiRoutes);
 
 
 

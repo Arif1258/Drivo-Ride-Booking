@@ -29,7 +29,11 @@ function initializeSocket(server) {
                 await userModel.findByIdAndUpdate(userId, { socketId: socket.id });
             } else if (userType === 'captain') {
                 console.log(`Captain connected: socket.id = ${socket.id}, userId = ${userId}`);
+                socket.join('captains');
                 await captainModel.findByIdAndUpdate(userId, { socketId: socket.id });
+            } else if (userType === 'admin') {
+                console.log(`Admin joined socket room: socket.id = ${socket.id}`);
+                socket.join('admin');
             }
         });
 
@@ -95,4 +99,26 @@ const sendMessageToUser = (userId, messageObject) => {
     }
 }
 
-module.exports = { initializeSocket, sendMessageToSocketId, sendMessageToUser };
+// Broadcast event to all administrators
+const broadcastToAdmin = (event, data) => {
+    console.log(`🚨 Broadcasting '${event}' to admin room`);
+    if (io) {
+        io.to('admin').emit(event, data);
+    }
+}
+
+// Broadcast event to all active captains (e.g. demand surges)
+const broadcastToCaptains = (event, data) => {
+    console.log(`📢 Broadcasting '${event}' to captains room`);
+    if (io) {
+        io.to('captains').emit(event, data);
+    }
+}
+
+module.exports = {
+    initializeSocket,
+    sendMessageToSocketId,
+    sendMessageToUser,
+    broadcastToAdmin,
+    broadcastToCaptains
+};

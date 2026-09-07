@@ -67,8 +67,42 @@ const captainSchema = new mongoose.Schema({
         coordinates: {
             type: [Number], // [longitude, latitude]
         }
+    },
+
+    // AI Performance & Ranking Factors
+    rating: {
+        type: Number,
+        default: 4.8,
+        min: 1.0,
+        max: 5.0
+    },
+    totalRides: {
+        type: Number,
+        default: 0
+    },
+    acceptanceRate: {
+        type: Number,
+        default: 95, // percentage 0-100
+        min: 0,
+        max: 100
+    },
+    cancellationRate: {
+        type: Number,
+        default: 3, // percentage 0-100
+        min: 0,
+        max: 100
+    },
+    onTimeRate: {
+        type: Number,
+        default: 97, // percentage 0-100
+        min: 0,
+        max: 100
+    },
+    totalEarnings: {
+        type: Number,
+        default: 0
     }
-})
+}, { timestamps: true });
 
 captainSchema.index({ location: '2dsphere' });
 

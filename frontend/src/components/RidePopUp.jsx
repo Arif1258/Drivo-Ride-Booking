@@ -9,7 +9,7 @@ const RidePopUp = (props) => {
             
             <h3 className='text-2xl font-black text-gray-900 tracking-tight mb-5'>New Request Available!</h3>
             
-            <div className='flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl mb-6'>
+            <div className='flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl mb-4'>
                 <div className='flex items-center gap-3 '>
                     <img className='h-12 w-12 rounded-full object-cover border-2 border-white shadow' src="https://i.pinimg.com/236x/af/26/28/af26280b0ca305be47df0b799ed1b12b.jpg" alt="Passenger" />
                     <div>
@@ -18,10 +18,24 @@ const RidePopUp = (props) => {
                     </div>
                 </div>
                 <div className='text-right'>
-                    <h5 className='text-lg font-black text-blue-600'>2.2 KM</h5>
+                    <h5 className='text-lg font-black text-blue-600'>
+                        {props.ride?.aiMatch?.distanceKm ? `${props.ride.aiMatch.distanceKm} KM` : '2.2 KM'}
+                    </h5>
                     <span className='text-[10px] text-gray-500 font-semibold'>Distance to pickup</span>
                 </div>
             </div>
+
+            {/* AI Match Score Breakdown Banner */}
+            {props.ride?.aiMatch && (
+                <div className='bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl mb-4 text-xs flex items-center justify-between'>
+                    <div className='flex items-center gap-2'>
+                        <span className='h-2 w-2 rounded-full bg-emerald-500 animate-pulse'></span>
+                        <span className='font-bold text-emerald-800'>AI Match Score: {props.ride.aiMatch.score}/100</span>
+                        <span className='text-emerald-600 font-semibold text-[11px]'>(Rank #{props.ride.aiMatch.rank})</span>
+                    </div>
+                    <span className='text-slate-600 font-semibold'>ETA: ~{props.ride.aiMatch.pickupEtaMinutes} min</span>
+                </div>
+            )}
 
             <div className='flex gap-4 justify-between flex-col items-center'>
                 <div className='w-full space-y-4'>

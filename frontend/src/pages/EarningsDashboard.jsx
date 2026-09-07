@@ -4,6 +4,7 @@ import axios from 'axios';
 
 const EarningsDashboard = () => {
     const [history, setHistory] = useState([]);
+    const [insights, setInsights] = useState(null);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         total: 0,
@@ -12,31 +13,37 @@ const EarningsDashboard = () => {
     });
 
     useEffect(() => {
-        const fetchHistory = async () => {
+        const fetchData = async () => {
+            const token = localStorage.getItem('captain-token');
             try {
-                const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/payments/captain-history`, {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem('captain-token')}`
-                    }
-                });
-                if (response.status === 200) {
-                    setHistory(response.data);
-                    
-                    // Aggregate Statistics
-                    const total = response.data.reduce((acc, curr) => acc + curr.amount, 0);
-                    const trips = response.data.length;
+                const [historyRes, insightsRes] = await Promise.allSettled([
+                    axios.get(`${import.meta.env.VITE_BASE_URL}/payments/captain-history`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    }),
+                    axios.get(`${import.meta.env.VITE_BASE_URL}/api/ai/driver-insights`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    })
+                ]);
+
+                if (historyRes.status === 'fulfilled' && historyRes.value.status === 200) {
+                    setHistory(historyRes.value.data);
+                    const total = historyRes.value.data.reduce((acc, curr) => acc + curr.amount, 0);
+                    const trips = historyRes.value.data.length;
                     const average = trips > 0 ? Math.round(total / trips) : 0;
-                    
                     setStats({ total, trips, average });
                 }
+
+                if (insightsRes.status === 'fulfilled' && insightsRes.value.status === 200) {
+                    setInsights(insightsRes.value.data);
+                }
             } catch (error) {
-                console.error('Error fetching earnings history:', error);
+                console.error('Error fetching earnings history & insights:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchHistory();
+        fetchData();
     }, []);
 
     if (loading) {
@@ -75,7 +82,7 @@ const EarningsDashboard = () => {
             </div>
 
             {/* Stats Grid */}
-            <div className='grid grid-cols-2 gap-4 mb-8'>
+            <div className='grid grid-cols-2 gap-4 mb-6'>
                 <div className='bg-gray-900 border border-gray-800 p-4 rounded-xl'>
                     <span className='text-xs text-gray-500 font-semibold block uppercase'>Completed Trips</span>
                     <span className='text-2xl font-bold mt-1 block'>{stats.trips}</span>
@@ -85,6 +92,54 @@ const EarningsDashboard = () => {
                     <span className='text-2xl font-bold mt-1 block'>₹{stats.average}</span>
                 </div>
             </div>
+
+            {/* AI Performance & Coaching Insights */}
+            {insights && (
+                <div className='bg-slate-900 border border-slate-800 p-5 rounded-2xl mb-8 space-y-4 shadow-lg'>
+                    <div className='flex items-center justify-between border-b border-slate-800 pb-3'>
+                        <div className='flex items-center gap-2.5'>
+                            <div className='h-8 w-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center'>
+                                <i className="ri-brain-line text-lg"></i>
+                            </div>
+                            <h3 className='font-bold text-base text-slate-100'>AI Performance & Coaching</h3>
+                        </div>
+                        <span className='text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-full'>
+                            Live Analytics
+                        </span>
+                    </div>
+
+                    {/* Quick Metric Pills */}
+                    <div className='grid grid-cols-3 gap-2.5 py-1'>
+                        <div className='bg-slate-950/60 border border-slate-800 p-3 rounded-xl text-center'>
+                            <span className='text-[10px] text-slate-500 uppercase font-semibold block'>Acceptance</span>
+                            <span className='text-base font-bold text-emerald-400 mt-0.5 block'>{insights.metrics?.acceptanceRate}%</span>
+                        </div>
+                        <div className='bg-slate-950/60 border border-slate-800 p-3 rounded-xl text-center'>
+                            <span className='text-[10px] text-slate-500 uppercase font-semibold block'>Cancellation</span>
+                            <span className='text-base font-bold text-slate-200 mt-0.5 block'>{insights.metrics?.cancellationRate}%</span>
+                        </div>
+                        <div className='bg-slate-950/60 border border-slate-800 p-3 rounded-xl text-center'>
+                            <span className='text-[10px] text-slate-500 uppercase font-semibold block'>Peak Window</span>
+                            <span className='text-xs font-bold text-amber-400 mt-1 block'>{insights.metrics?.peakEarningWindow}</span>
+                        </div>
+                    </div>
+
+                    {/* AI Dynamic Coaching Statements */}
+                    <div className='space-y-2.5 pt-1'>
+                        {insights.insights?.map((item, idx) => (
+                            <div key={idx} className='p-3 bg-slate-950/80 rounded-xl border border-slate-800/80 flex items-start gap-3'>
+                                <div className='h-7 w-7 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 mt-0.5 text-blue-400'>
+                                    <i className={`${item.icon} text-sm`}></i>
+                                </div>
+                                <div>
+                                    <h4 className='text-xs font-bold text-slate-200'>{item.headline}</h4>
+                                    <p className='text-xs text-slate-400 mt-0.5 leading-relaxed'>{item.text}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* History List */}
             <div>

@@ -12,12 +12,15 @@ import { SocketContext } from '../context/SocketContext';
 import { UserDataContext } from '../context/UserContext';
 import { useNavigate, Link } from 'react-router-dom';
 import LiveTracking from '../components/LiveTracking';
-import { MapPin, Navigation, ArrowLeft, History, PieChart, LogOut } from 'lucide-react';
+import SupportAssistantModal from '../components/SupportAssistantModal';
+import { MapPin, Navigation, ArrowLeft, History, PieChart, LogOut, Bot, Sparkles } from 'lucide-react';
 
 const Home = () => {
     const [pickup, setPickup] = useState('');
     const [destination, setDestination] = useState('');
     const [panelOpen, setPanelOpen] = useState(false);
+    const [supportOpen, setSupportOpen] = useState(false);
+    const [aiEtaInfo, setAiEtaInfo] = useState(null);
     const vehiclePanelRef = useRef(null);
     const confirmRidePanelRef = useRef(null);
     const vehicleFoundRef = useRef(null);
@@ -188,15 +191,32 @@ const Home = () => {
             setVehiclePanel(true);
             setPanelOpen(false);
 
-            const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/rides/get-fare`, {
-                params: { pickup, destination },
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-            });
+            const token = localStorage.getItem('token');
+            const [fareRes, etaRes] = await Promise.allSettled([
+                axios.get(`${import.meta.env.VITE_BASE_URL}/rides/get-fare`, {
+                    params: { pickup, destination },
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                axios.post(`${import.meta.env.VITE_BASE_URL}/api/ai/predict-eta`, {
+                    pickup,
+                    destination
+                }, {
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+            ]);
 
-            setFare(response.data);
+            if (fareRes.status === 'fulfilled') {
+                setFare(fareRes.value.data);
+            } else {
+                throw new Error(fareRes.reason?.response?.data?.message || 'Failed to fetch fare options.');
+            }
+
+            if (etaRes.status === 'fulfilled') {
+                setAiEtaInfo(etaRes.value.data);
+            }
         } catch (error) {
             console.error('Error finding trip:', error);
-            alert(error.response?.data?.message || 'Failed to fetch fare options.');
+            alert(error.response?.data?.message || error.message || 'Failed to fetch fare options.');
             setVehiclePanel(false);
             setPanelOpen(true);
         }
@@ -226,9 +246,24 @@ const Home = () => {
                 <div className='h-10 w-10 bg-black text-white rounded-xl flex items-center justify-center shadow-lg pointer-events-auto'>
                     <span className='font-black text-xl'>D</span>
                 </div>
+                {aiEtaInfo && (
+                    <div className='pointer-events-auto hidden sm:flex items-center gap-2 bg-slate-900/90 backdrop-blur text-white px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg text-xs font-semibold animate-fade-in'>
+                        <Sparkles className='h-3.5 w-3.5 text-blue-400' />
+                        <span>AI ETA: <strong className='text-blue-400'>{aiEtaInfo.aiEtaMinutes} mins</strong> ({aiEtaInfo.trafficCondition})</span>
+                    </div>
+                )}
             </div>
 
             <div className='absolute right-6 top-6 z-25 flex gap-2 print:hidden'>
+                {/* AI Support Assistant Button */}
+                <button
+                    onClick={() => setSupportOpen(true)}
+                    className='h-11 px-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white backdrop-blur shadow-lg shadow-blue-500/25 flex items-center gap-2 rounded-full hover:scale-105 transition-all text-xs font-bold'
+                    title="AI Support Assistant"
+                >
+                    <Bot className='h-4 w-4' />
+                    <span className='hidden sm:inline'>AI Support</span>
+                </button>
                 <Link to='/payments' className='h-11 w-11 bg-white/90 backdrop-blur shadow-lg flex items-center justify-center rounded-full hover:scale-105 transition-all text-slate-800' title="Payment History">
                     <History className='h-5 w-5' />
                 </Link>
@@ -359,6 +394,13 @@ const Home = () => {
                     waitingForDriver={waitingForDriver} 
                 />
             </div>
+
+            {/* AI Customer Support Assistant Modal */}
+            <SupportAssistantModal
+                isOpen={supportOpen}
+                onClose={() => setSupportOpen(false)}
+                userType="user"
+            />
         </div>
     );
 };

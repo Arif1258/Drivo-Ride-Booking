@@ -9,11 +9,16 @@ import { SocketContext } from '../context/SocketContext';
 import { CaptainDataContext } from '../context/CapatainContext';
 import axios from 'axios';
 import LiveTracking from '../components/LiveTracking';
-import { LogOut, Radio, Award } from 'lucide-react';
+import SupportAssistantModal from '../components/SupportAssistantModal';
+import { LogOut, Radio, Award, TrendingUp, Compass, Bot, Sparkles, X, MapPin, ChevronRight } from 'lucide-react';
 
 const CaptainHome = () => {
     const [ridePopupPanel, setRidePopupPanel] = useState(false);
     const [confirmRidePopupPanel, setConfirmRidePopupPanel] = useState(false);
+    const [repositionAdvice, setRepositionAdvice] = useState(null);
+    const [demandModalOpen, setDemandModalOpen] = useState(false);
+    const [allZones, setAllZones] = useState([]);
+    const [supportOpen, setSupportOpen] = useState(false);
 
     const ridePopupPanelRef = useRef(null);
     const confirmRidePopupPanelRef = useRef(null);
@@ -115,6 +120,46 @@ const CaptainHome = () => {
         };
     }, [captain, ridePopupPanel, confirmRidePopupPanel]);
 
+    // Fetch AI Repositioning Advice and Demand Zones
+    useEffect(() => {
+        const fetchAIData = async () => {
+            const token = localStorage.getItem('captain-token');
+            if (!token) return;
+
+            try {
+                const [repositionRes, zonesRes] = await Promise.allSettled([
+                    axios.get(`${import.meta.env.VITE_BASE_URL}/api/ai/driver-reposition`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    }),
+                    axios.get(`${import.meta.env.VITE_BASE_URL}/api/ai/demand-zones`)
+                ]);
+
+                if (repositionRes.status === 'fulfilled') {
+                    setRepositionAdvice(repositionRes.value.data);
+                }
+                if (zonesRes.status === 'fulfilled') {
+                    setAllZones(zonesRes.value.data);
+                }
+            } catch (err) {
+                console.log('AI data fetch error:', err.message);
+            }
+        };
+
+        fetchAIData();
+        const aiInterval = setInterval(fetchAIData, 45000); // refresh every 45s
+
+        // Listen for real-time demand surge broadcast
+        socket.on('high-demand-alert', (alertData) => {
+            console.log('📢 Received high-demand-alert:', alertData);
+            fetchAIData();
+        });
+
+        return () => {
+            clearInterval(aiInterval);
+            socket.off('high-demand-alert');
+        };
+    }, [captain, socket]);
+
     async function confirmRide() {
         await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/confirm`, {
             rideId: ride._id,
@@ -178,9 +223,9 @@ const CaptainHome = () => {
 
     return (
         <div className='h-screen relative overflow-hidden font-sans bg-slate-950 text-white'>
-            {/* Top Bar Status Controls */}
-            <div className='fixed p-6 top-0 flex items-center justify-between w-screen z-25 pointer-events-none'>
-                <div className='flex items-center gap-3 pointer-events-auto'>
+            {/* Top Bar Status & AI Controls */}
+            <div className='fixed p-4 sm:p-6 top-0 flex items-center justify-between w-screen z-25 pointer-events-none'>
+                <div className='flex items-center gap-2 sm:gap-3 pointer-events-auto'>
                     <div className='h-10 w-10 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20'>
                         <span className='font-black text-xl'>D</span>
                     </div>
@@ -190,14 +235,66 @@ const CaptainHome = () => {
                     </div>
                 </div>
 
-                <Link to='/captain/logout' className='h-11 w-11 bg-slate-900/80 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:scale-105 transition-all text-red-400 pointer-events-auto shadow-lg' title="Logout">
-                    <LogOut className='h-5 w-5' />
-                </Link>
+                <div className='flex items-center gap-2 pointer-events-auto'>
+                    {/* Demand Heatmap Zones Button */}
+                    <button
+                        onClick={() => setDemandModalOpen(true)}
+                        className='h-10 px-3 bg-slate-900/90 backdrop-blur border border-white/10 rounded-full flex items-center gap-1.5 text-amber-400 hover:scale-105 transition-all shadow-lg text-xs font-bold'
+                        title="Citywide Demand Hotspots"
+                    >
+                        <TrendingUp className='h-4 w-4 text-amber-400' />
+                        <span className='hidden sm:inline'>Demand Zones</span>
+                    </button>
+
+                    {/* AI Support Assistant Button */}
+                    <button
+                        onClick={() => setSupportOpen(true)}
+                        className='h-10 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center gap-1.5 text-white hover:scale-105 transition-all shadow-lg shadow-blue-500/20 text-xs font-bold'
+                        title="AI Support Assistant"
+                    >
+                        <Bot className='h-4 w-4' />
+                        <span className='hidden sm:inline'>AI Support</span>
+                    </button>
+
+                    <Link to='/captain/logout' className='h-10 w-10 bg-slate-900/80 backdrop-blur border border-white/10 rounded-full flex items-center justify-center hover:scale-105 transition-all text-red-400 shadow-lg' title="Logout">
+                        <LogOut className='h-4 w-4' />
+                    </Link>
+                </div>
             </div>
 
             {/* Live Map */}
-            <div ref={mapContainerRef} style={{ height: '60vh' }} className='w-screen z-10'>
+            <div ref={mapContainerRef} style={{ height: '60vh' }} className='w-screen z-10 relative'>
                 <LiveTracking ride={ride} />
+
+                {/* AI Smart Repositioning Floating Card */}
+                {repositionAdvice && (
+                    <div className='absolute bottom-3 left-4 right-4 z-20 pointer-events-auto'>
+                        <div
+                            onClick={() => setDemandModalOpen(true)}
+                            className='bg-slate-900/95 backdrop-blur-md border border-amber-500/30 p-3 sm:p-3.5 rounded-2xl shadow-xl flex items-center justify-between cursor-pointer hover:border-amber-400/60 transition-all'
+                        >
+                            <div className='flex items-center gap-3'>
+                                <div className='h-9 w-9 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0'>
+                                    <Compass className='h-5 w-5 animate-spin-slow' />
+                                </div>
+                                <div className='pr-2'>
+                                    <div className='flex items-center gap-2'>
+                                        <span className='text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider'>
+                                            AI Repositioning
+                                        </span>
+                                        <span className='text-[11px] text-emerald-400 font-bold'>
+                                            +{repositionAdvice.recommendedZone.probabilityBoostPercent}% Ride Probability
+                                        </span>
+                                    </div>
+                                    <p className='text-xs font-semibold text-slate-200 mt-1 line-clamp-1'>
+                                        {repositionAdvice.message}
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronRight className='h-5 w-5 text-slate-400 flex-shrink-0' />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Driver Details Sheet */}
@@ -234,6 +331,74 @@ const CaptainHome = () => {
                     setRidePopupPanel={setRidePopupPanel} 
                 />
             </div>
+
+            {/* AI Demand Zones Modal */}
+            {demandModalOpen && (
+                <div className='fixed inset-0 z-[500] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4'>
+                    <div className='bg-slate-900 text-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-800 flex flex-col max-h-[80vh]'>
+                        <div className='flex items-center justify-between border-b border-slate-800 pb-4 mb-4'>
+                            <div className='flex items-center gap-3'>
+                                <div className='h-10 w-10 bg-amber-500/10 text-amber-400 rounded-xl flex items-center justify-center'>
+                                    <TrendingUp className='h-5 w-5' />
+                                </div>
+                                <div>
+                                    <h3 className='text-lg font-bold'>Citywide Demand Hotspots</h3>
+                                    <p className='text-xs text-slate-400'>Real-time demand vs active driver supply</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setDemandModalOpen(false)}
+                                className='h-8 w-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300'
+                            >
+                                <X className='h-4 w-4' />
+                            </button>
+                        </div>
+
+                        <div className='space-y-3 overflow-y-auto pr-1 flex-1'>
+                            {allZones.map((zone) => (
+                                <div
+                                    key={zone.zoneId}
+                                    className='bg-slate-950/80 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between hover:border-slate-700 transition-all'
+                                >
+                                    <div>
+                                        <div className='flex items-center gap-2'>
+                                            <h4 className='font-bold text-sm text-slate-200'>{zone.area}</h4>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                zone.predictedDemand === 'SURGE' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                                zone.predictedDemand === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                                zone.predictedDemand === 'MEDIUM' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                                'bg-slate-800 text-slate-400'
+                                            }`}>
+                                                {zone.predictedDemand}
+                                            </span>
+                                        </div>
+                                        <p className='text-xs text-slate-400 mt-1'>
+                                            Expected: <strong>{zone.expectedRides} rides</strong> • Active drivers: <strong>{zone.availableDrivers}</strong>
+                                        </p>
+                                    </div>
+                                    <div className='text-right'>
+                                        <span className='text-sm font-black text-amber-400'>{zone.demandSupplyRatio}x</span>
+                                        <span className='text-[10px] text-slate-500 block'>Demand/Supply</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className='mt-4 pt-3 border-t border-slate-800 text-center'>
+                            <p className='text-[11px] text-slate-500'>
+                                Predictions recalculate dynamically every 45s based on live trip velocity.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* AI Customer Support Assistant Modal */}
+            <SupportAssistantModal
+                isOpen={supportOpen}
+                onClose={() => setSupportOpen(false)}
+                userType="captain"
+            />
         </div>
     );
 };

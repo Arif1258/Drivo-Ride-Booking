@@ -7,16 +7,22 @@ const LookingForDriver = (props) => {
             {/* Pull Bar */}
             <div className='w-12 h-1 bg-gray-200 rounded-full mx-auto mb-6 cursor-pointer' onClick={() => props.setVehicleFound(false)}></div>
             
-            {/* Pulsing Searching Animation */}
-            <div className='flex flex-col items-center justify-center py-4'>
-                <div className='relative flex items-center justify-center mb-6'>
-                    <div className='absolute h-16 w-16 bg-blue-500/20 rounded-full animate-ping'></div>
-                    <div className='h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30 text-white font-bold text-lg relative z-10'>
-                        🔍
+            {/* Pulsing Searching Animation with AI Indicator */}
+            <div className='flex flex-col items-center justify-center py-3'>
+                <div className='relative flex items-center justify-center mb-4'>
+                    <div className='absolute h-16 w-16 bg-indigo-500/20 rounded-full animate-ping'></div>
+                    <div className='h-12 w-12 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30 text-white font-bold text-lg relative z-10'>
+                        🤖
                     </div>
                 </div>
-                <h3 className='text-xl font-black text-gray-900 tracking-tight text-center'>Matching with Nearby Drivers</h3>
-                <p className='text-xs text-gray-500 mt-1.5 text-center'>Sending ride requests to the closest Drivo captains</p>
+                <h3 className='text-xl font-black text-gray-900 tracking-tight text-center'>AI Driver-Rider Matching</h3>
+                <p className='text-xs text-gray-500 mt-1 text-center'>Intelligently ranking captains by proximity, rating, and acceptance</p>
+
+                {/* AI Matching Criteria Pill */}
+                <div className='mt-3 flex items-center gap-2 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-[11px] font-semibold text-indigo-700'>
+                    <span className='h-2 w-2 rounded-full bg-indigo-500 animate-pulse'></span>
+                    <span>Scoring candidates: ETA • Proximity • Reliability</span>
+                </div>
             </div>
 
             <div className='flex gap-4 justify-between flex-col items-center mt-4'>
