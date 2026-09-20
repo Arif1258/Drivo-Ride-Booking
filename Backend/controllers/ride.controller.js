@@ -4,8 +4,8 @@ const mapService = require('../services/maps.service');
 const { sendMessageToUser, broadcastToAdmin } = require('../socket');
 const rideModel = require('../models/ride.model');
 const captainModel = require('../models/captain.model');
-const driverMatchingService = require('../services/ai/driverMatchingService');
-const etaPredictionService = require('../services/ai/etaPredictionService');
+const driverMatchingService = require('../services/driverMatchingService');
+const etaService = require('../services/etaService');
 const anomalyDetectionService = require('../services/ai/anomalyDetectionService');
 
 module.exports.createRide = async (req, res) => {
@@ -23,8 +23,8 @@ module.exports.createRide = async (req, res) => {
         // 1. AI ETA Prediction
         let aiEta = null;
         try {
-            aiEta = await etaPredictionService.predictRideETA({ pickup, destination });
-            ride.aiEstimatedDuration = aiEta.aiEtaMinutes * 60;
+            aiEta = await etaService.predictPreBookingETA({ pickup, destination, vehicleType });
+            ride.aiEstimatedDuration = (aiEta.estimatedMinutes || 15) * 60;
         } catch (etaErr) {
             console.warn('AI ETA calculation warning:', etaErr.message);
         }

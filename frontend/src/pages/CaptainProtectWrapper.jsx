@@ -17,25 +17,27 @@ const CaptainProtectWrapper = ({
 
     useEffect(() => {
         if (!token) {
-            navigate('/captain-login')
+            navigate('/captain-login');
+            return;
         }
 
         axios.get(`${import.meta.env.VITE_BASE_URL}/captains/profile`, {
             headers: {
                 Authorization: `Bearer ${token}`
-            }
+            },
+            timeout: 8000
         }).then(response => {
             if (response.status === 200) {
-                setCaptain(response.data.captain)
-                setIsLoading(false)
+                setCaptain(response.data.captain);
+                setIsLoading(false);
             }
-        })
-            .catch(err => {
-
-                localStorage.removeItem('captain-token')
-                navigate('/captain-login')
-            })
-    }, [token])
+        }).catch(err => {
+            console.warn('Captain profile fetch failed:', err.message);
+            localStorage.removeItem('captain-token');
+            setIsLoading(false);
+            navigate('/captain-login');
+        });
+    }, [token]);
 
 
 

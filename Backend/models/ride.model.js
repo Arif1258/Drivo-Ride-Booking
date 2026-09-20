@@ -92,4 +92,9 @@ const rideSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+rideSchema.index({ user: 1, status: 1 });
+rideSchema.index({ captain: 1, status: 1 });
+rideSchema.index({ status: 1, createdAt: -1 });
+rideSchema.index({ "originCoordinates.ltd": 1, "originCoordinates.lng": 1 });
+
 module.exports = mongoose.model('ride', rideSchema);

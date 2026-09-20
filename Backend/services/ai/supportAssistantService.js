@@ -163,6 +163,8 @@ function generateDeterministicAnswer(query, policy, userContext) {
  * @param {string} [userId] - Authenticated user ID for context
  * @returns {Object} Contextual answer with metadata
  */
+const aiSupportService = require('../aiSupportService');
+
 async function askSupportAssistant(query, userId = null) {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
         return {
@@ -172,71 +174,41 @@ async function askSupportAssistant(query, userId = null) {
         };
     }
 
-    const userContext = await getUserContext(userId);
+    // 1. Check if user is asking specific policy question (cancellation, refund, lost item, etc.)
     const matchedPolicy = findMatchingPolicy(query);
-
-    // If Gemini API Key is present in environment, synthesize through LLM with grounded prompt
-    if (process.env.GEMINI_API_KEY) {
-        try {
-            const prompt = `
-You are Drivo Support AI, an empathetic, concise, and helpful assistant for Drivo ride-hailing.
-Answer the user's question accurately using ONLY the official policies and user context below.
-Never fabricate refund guarantees or policies. If you cannot answer confidently, instruct them to contact support@drivo.com.
-
-Official Policies:
-${JSON.stringify(KNOWLEDGE_BASE, null, 2)}
-
-User Context:
-${JSON.stringify({
-    recentRidesCount: userContext.recentRides.length,
-    lastRide: userContext.recentRides[0] ? {
-        pickup: userContext.recentRides[0].pickup,
-        destination: userContext.recentRides[0].destination,
-        fare: userContext.recentRides[0].fare,
-        status: userContext.recentRides[0].status,
-        date: userContext.recentRides[0].createdAt
-    } : null,
-    lastPayment: userContext.recentPayments[0] ? {
-        amount: userContext.recentPayments[0].amount,
-        status: userContext.recentPayments[0].paymentStatus,
-        method: userContext.recentPayments[0].paymentMethod
-    } : null
-}, null, 2)}
-
-User Question: "${query}"
-
-Provide a professional, clear response formatted with markdown:
-`;
-
-            const geminiRes = await axios.post(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-                {
-                    contents: [{ parts: [{ text: prompt }] }]
-                },
-                { timeout: 7000 }
-            );
-
-            const generatedText = geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (generatedText) {
-                return {
-                    text: generatedText,
-                    confidence: 0.98,
-                    source: 'gemini_synthesized',
-                    suggestedActions: ['Helpful', 'Contact Human Agent']
-                };
-            }
-        } catch (llmErr) {
-            console.warn('Gemini API call failed, falling back to deterministic policy engine:', llmErr.message);
-        }
+    if (matchedPolicy) {
+        const userContext = await getUserContext(userId);
+        return generateDeterministicAnswer(query, matchedPolicy, userContext);
     }
 
-    // Fallback: Deterministic context-aware rule-based policy answer
-    return generateDeterministicAnswer(query, matchedPolicy, userContext);
+    // 2. Check for general FAQ / out-of-scope question
+    const q = query.toLowerCase();
+    const isRideToolQuery = q.includes('driver') || q.includes('ride') || q.includes('eta') ||
+                            q.includes('status') || q.includes('cancel') || q.includes('fare') ||
+                            q.includes('history') || q.includes('cost') || q.includes('arrive') ||
+                            q.includes('where') || q.includes('who') || q.includes('track');
+
+    if (!isRideToolQuery) {
+        return generateDeterministicAnswer(query, null, { recentRides: [], recentPayments: [] });
+    }
+
+    // 3. Real-time Zen AI Tool Calling
+    const result = await aiSupportService.askZenSupport(query, userId);
+    return {
+        text: result.text,
+        confidence: 0.98,
+        source: result.source || 'zen_ai',
+        cardType: result.cardType,
+        cardData: result.cardData,
+        suggestedActions: ['Where is my driver?', "What's my ETA?", 'Who is my driver?', 'Cancel ride']
+    };
 }
 
 module.exports = {
     askSupportAssistant,
     findMatchingPolicy,
     KNOWLEDGE_BASE,
-    getUserContext
+    getUserContext,
+    ...aiSupportService
 };
+

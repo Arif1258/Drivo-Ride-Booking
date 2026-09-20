@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { SocketContext } from '../context/SocketContext';
 import LiveTracking from '../components/LiveTracking';
+import SupportAssistantModal from '../components/SupportAssistantModal';
 import axios from 'axios';
 
 const Riding = () => {
@@ -11,6 +12,7 @@ const Riding = () => {
     const navigate = useNavigate();
 
     const [ride, setRide] = useState(initialRide);
+    const [isZenOpen, setIsZenOpen] = useState(false);
     const [showPayment, setShowPayment] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('card');
     const [paymentStatus, setPaymentStatus] = useState('idle'); // 'idle' | 'processing' | 'success' | 'failed'
@@ -105,9 +107,17 @@ const Riding = () => {
     return (
         <div className='h-screen relative font-sans text-gray-900 bg-gray-50 print:bg-white'>
             <div className='print:hidden'>
-                <Link to='/home' className='fixed right-4 top-4 h-12 w-12 bg-white/90 backdrop-blur shadow-lg flex items-center justify-center rounded-full z-50 hover:scale-105 transition-all'>
+                <Link to='/home' className='fixed right-4 top-4 h-12 w-12 bg-white/90 backdrop-blur shadow-lg flex items-center justify-center rounded-full z-50 hover:scale-105 transition-all' title="Go Home">
                     <i className="text-xl font-semibold ri-home-5-line"></i>
                 </Link>
+                <button
+                    onClick={() => setIsZenOpen(true)}
+                    className='fixed right-4 top-18 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl flex items-center gap-1.5 px-3 py-2 rounded-full z-50 hover:scale-105 transition-all text-xs font-bold border border-white/20'
+                    title="Ask Zen AI Assistant"
+                >
+                    <i className="ri-robot-2-line text-base"></i>
+                    <span>Ask Zen</span>
+                </button>
             </div>
 
             {/* Top Half: Live Map (hidden on print) */}
@@ -361,6 +371,12 @@ const Riding = () => {
                     </div>
                 </div>
             )}
+
+            <SupportAssistantModal
+                isOpen={isZenOpen}
+                onClose={() => setIsZenOpen(false)}
+                userType='user'
+            />
         </div>
     );
 };

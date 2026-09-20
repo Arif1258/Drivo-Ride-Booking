@@ -25,7 +25,9 @@ const Captainlogin = () => {
     };
 
     try {
-      const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/captains/login`, captainData);
+      const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/captains/login`, captainData, {
+        timeout: 10000
+      });
 
       if (response.status === 200) {
         const data = response.data;

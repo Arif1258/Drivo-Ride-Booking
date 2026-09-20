@@ -105,6 +105,8 @@ const captainSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 captainSchema.index({ location: '2dsphere' });
+captainSchema.index({ status: 1, 'vehicle.vehicleType': 1 });
+captainSchema.index({ socketId: 1 });
 
 
 captainSchema.methods.generateAuthToken = function () {

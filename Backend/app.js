@@ -12,7 +12,8 @@ const mapsRoutes = require('./routes/maps.routes');
 const rideRoutes = require('./routes/ride.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const aiRoutes = require('./routes/ai.routes');
-const { seedHistoricalRidesIfEmpty } = require('./services/ai/demandPredictionService');
+const demandRoutes = require('./routes/demand.routes');
+const { seedHistoricalRidesIfEmpty } = require('./services/demandPredictionService');
 
 connectToDb().then(() => {
     seedHistoricalRidesIfEmpty();
@@ -40,6 +41,8 @@ app.use('/rides', rideRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/ai', aiRoutes);
+app.use('/api/demand', demandRoutes);
+app.use('/demand', demandRoutes);
 
 
 

@@ -3,12 +3,12 @@
  * Exposes endpoints for all Drivo AI/ML features.
  */
 
-const driverMatchingService = require('../services/ai/driverMatchingService');
-const demandPredictionService = require('../services/ai/demandPredictionService');
-const repositioningService = require('../services/ai/repositioningService');
-const etaPredictionService = require('../services/ai/etaPredictionService');
+const driverMatchingService = require('../services/driverMatchingService');
+const demandPredictionService = require('../services/demandPredictionService');
+const repositioningService = require('../services/driverRepositioningService');
+const etaService = require('../services/etaService');
 const anomalyDetectionService = require('../services/ai/anomalyDetectionService');
-const supportAssistantService = require('../services/ai/supportAssistantService');
+const aiSupportService = require('../services/aiSupportService');
 const driverInsightService = require('../services/ai/driverInsightService');
 const captainModel = require('../models/captain.model');
 const rideModel = require('../models/ride.model');
@@ -98,7 +98,7 @@ module.exports.getDriverRepositioning = async (req, res) => {
             };
         }
 
-        const advice = await repositioningService.getRepositioningAdvice(driverLoc);
+        const advice = await repositioningService.getDriverRepositioningAdvice(driverLoc);
         return res.status(200).json(advice);
     } catch (err) {
         console.error('Driver repositioning error:', err);
@@ -109,20 +109,29 @@ module.exports.getDriverRepositioning = async (req, res) => {
 // 4. AI ETA Prediction
 module.exports.predictETA = async (req, res) => {
     try {
-        const { pickup, destination, baseDistanceMeters, baseDurationSeconds } = req.body;
+        const { pickup, destination, vehicleType } = req.body;
 
         if (!pickup || !destination) {
             return res.status(400).json({ message: 'Both pickup and destination are required' });
         }
 
-        const etaResult = await etaPredictionService.predictRideETA({
+        const etaResult = await etaService.predictPreBookingETA({
             pickup,
             destination,
-            baseDistanceMeters,
-            baseDurationSeconds
+            vehicleType
         });
 
-        return res.status(200).json(etaResult);
+        return res.status(200).json({
+            aiEtaMinutes: etaResult.estimatedMinutes,
+            tripDurationMinutes: etaResult.tripDurationMinutes,
+            pickupEtaMinutes: etaResult.pickupEtaMinutes,
+            trafficDelayMinutes: Math.max(0, etaResult.estimatedMinutes - etaResult.tripDurationMinutes - etaResult.pickupEtaMinutes),
+            trafficCondition: etaResult.trafficCondition,
+            compositeTrafficFactor: etaResult.trafficMultiplier,
+            targetArrivalTime: new Date(Date.now() + etaResult.estimatedMinutes * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            explanation: `Traffic level: ${etaResult.trafficCondition}. Estimated arrival: ${etaResult.readable}.`,
+            ...etaResult
+        });
     } catch (err) {
         console.error('ETA prediction error:', err);
         return res.status(500).json({ message: err.message });
@@ -148,7 +157,7 @@ module.exports.evaluateRisk = async (req, res) => {
     }
 };
 
-// 6. Context-Aware AI Customer Support Assistant
+// 6. Zen — AI-Powered Customer Support Assistant with Tool Calling
 module.exports.supportChat = async (req, res) => {
     try {
         const { query } = req.body;
@@ -158,10 +167,17 @@ module.exports.supportChat = async (req, res) => {
             return res.status(400).json({ message: 'Query message is required' });
         }
 
-        const response = await supportAssistantService.askSupportAssistant(query, userId);
-        return res.status(200).json(response);
+        const response = await aiSupportService.askZenSupport(query, userId);
+        return res.status(200).json({
+            text: response.text,
+            confidence: 0.98,
+            source: response.source || 'zen_ai',
+            cardType: response.cardType,
+            cardData: response.cardData,
+            suggestedActions: ['Where is my driver?', "What's my ETA?", 'Who is my driver?', 'Cancel ride']
+        });
     } catch (err) {
-        console.error('Support assistant error:', err);
+        console.error('Zen support assistant error:', err);
         return res.status(500).json({ message: err.message });
     }
 };

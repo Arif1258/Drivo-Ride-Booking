@@ -2,6 +2,7 @@ const socketIo = require('socket.io');
 const userModel = require('./models/user.model');
 const captainModel = require('./models/captain.model');
 const rideModel = require('./models/ride.model');
+const etaService = require('./services/etaService');
 
 let io;
 
@@ -56,7 +57,7 @@ function initializeSocket(server) {
                 const activeRide = await rideModel.findOne({
                     captain: userId,
                     status: { $in: ['accepted', 'ongoing', 'payment-pending'] }
-                });
+                }).populate('captain');
 
                 if (activeRide) {
                     const userIdStr = activeRide.user.toString();
@@ -64,6 +65,14 @@ function initializeSocket(server) {
                         latitude: location.ltd,
                         longitude: location.lng
                     });
+
+                    // Broadcast real-time ETA update
+                    try {
+                        const liveEta = await etaService.calculateRideETA(activeRide, location);
+                        io.to(userIdStr).emit('eta-updated', liveEta);
+                    } catch (etaErr) {
+                        console.warn("Error calculating live socket ETA:", etaErr.message);
+                    }
                 }
             } catch (err) {
                 console.error("Error broadcasting captain location:", err);
@@ -115,10 +124,28 @@ const broadcastToCaptains = (event, data) => {
     }
 }
 
+// Send live ETA update to rider
+const sendETAUpdate = (userId, etaData) => {
+    sendMessageToUser(userId, {
+        event: 'eta-updated',
+        data: etaData
+    });
+};
+
+// Send repositioning recommendation to a captain
+const sendRepositioningRecommendation = (captainId, recommendation) => {
+    sendMessageToUser(captainId, {
+        event: 'driver-reposition-recommendation',
+        data: recommendation
+    });
+};
+
 module.exports = {
     initializeSocket,
     sendMessageToSocketId,
     sendMessageToUser,
     broadcastToAdmin,
-    broadcastToCaptains
+    broadcastToCaptains,
+    sendETAUpdate,
+    sendRepositioningRecommendation
 };
