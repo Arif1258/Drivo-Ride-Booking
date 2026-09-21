@@ -43,23 +43,22 @@ const CaptainDetails = () => {
                     </Link>
                 </div>
             </div>
-            <div className='flex p-3 mt-8 bg-gray-100 rounded-xl justify-center gap-5 items-start'>
+            <div className='flex p-3 mt-6 bg-gray-100 rounded-xl justify-around items-center'>
                 <div className='text-center'>
-                    <i className="text-3xl mb-2 font-thin ri-timer-2-line"></i>
-                    <h5 className='text-lg font-medium'>10.2</h5>
-                    <p className='text-sm text-gray-600'>Hours Online</p>
+                    <span className='text-xs font-bold text-amber-600 block'>⭐ {captain.rating || 4.8}</span>
+                    <h5 className='text-base font-bold text-slate-900'>Rating</h5>
+                    <p className='text-[11px] text-gray-500 font-medium'>5.0 Star Target</p>
+                </div>
+                <div className='text-center border-x border-gray-200 px-3'>
+                    <span className='text-xs font-bold text-emerald-600 block'>{captain.acceptanceRate || 96}%</span>
+                    <h5 className='text-base font-bold text-slate-900'>Acceptance</h5>
+                    <p className='text-[11px] text-gray-500 font-medium'>High Priority Tier</p>
                 </div>
                 <div className='text-center'>
-                    <i className="text-3xl mb-2 font-thin ri-speed-up-line"></i>
-                    <h5 className='text-lg font-medium'>30 KM</h5>
-                    <p className='text-sm text-gray-600'>Distance Cover</p>
+                    <span className='text-xs font-bold text-blue-600 block'>{tripsCount}</span>
+                    <h5 className='text-base font-bold text-slate-900'>Completed</h5>
+                    <p className='text-[11px] text-gray-500 font-medium'>Total Rides</p>
                 </div>
-                <div className='text-center'>
-                    <i className="text-3xl mb-2 font-thin ri-booklet-line"></i>
-                    <h5 className='text-lg font-medium'>{tripsCount}</h5>
-                    <p className='text-sm text-gray-600'>Completed Trips</p>
-                </div>
-
             </div>
         </div>
     )

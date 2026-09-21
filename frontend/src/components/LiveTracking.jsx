@@ -6,7 +6,7 @@ import { SocketContext } from '../context/SocketContext';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
-const LiveTracking = ({ pickup, destination, ride }) => {
+const LiveTracking = ({ pickup, destination, ride, hotspots = [] }) => {
     const { socket } = useContext(SocketContext);
 
     const [viewState, setViewState] = useState({
@@ -251,6 +251,28 @@ const LiveTracking = ({ pickup, destination, ride }) => {
                     />
                 </Source>
             )}
+
+            {/* Dynamic Demand Hotspots Layer */}
+            {hotspots && hotspots.map((h, i) => {
+                const lat = h.center?.ltd ?? h.center?.lat;
+                const lng = h.center?.lng;
+                if (!lat || !lng) return null;
+                const isSurge = h.intensity === 'SURGE' || h.surgeMultiplier > 1.2;
+                return (
+                    <Marker key={`hotspot-${i}`} latitude={lat} longitude={lng} anchor="center">
+                        <div className="relative flex items-center justify-center cursor-pointer group" title={`${h.name || 'Hotspot'}: ${h.surgeMultiplier || 1.0}x Surge (${h.expectedRides || 0} rides)`}>
+                            <div className={`absolute w-12 h-12 rounded-full opacity-35 animate-ping ${
+                                isSurge ? 'bg-rose-500' : 'bg-amber-500'
+                            }`}></div>
+                            <div className={`relative px-2 py-0.5 rounded-full text-white text-[10px] font-black shadow-lg border border-white/60 flex items-center gap-1 ${
+                                isSurge ? 'bg-rose-600' : 'bg-amber-600'
+                            }`}>
+                                <span>🔥 {h.surgeMultiplier || '1.2'}x</span>
+                            </div>
+                        </div>
+                    </Marker>
+                );
+            })}
         </Map>
     );
 };

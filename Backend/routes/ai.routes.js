@@ -12,13 +12,14 @@ const authMiddleware = require('../middlewares/auth.middleware');
 router.post('/driver-match', aiController.matchDrivers);
 router.get('/demand-prediction', aiController.getDemandPrediction);
 router.get('/demand-zones', aiController.getAllDemandZones);
+router.get('/demand-hotspots', aiController.getDemandHotspots);
 router.post('/predict-eta', aiController.predictETA);
 router.post('/evaluate-risk', aiController.evaluateRisk);
 router.post('/support-chat', (req, res, next) => {
-    // Optional auth: if token is present, decode user, otherwise proceed
+    // Authenticate either user or captain token to establish verified identity
     const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
     if (token) {
-        return authMiddleware.authUser(req, res, next);
+        return authMiddleware.authUserOrCaptain(req, res, next);
     }
     next();
 }, aiController.supportChat);
@@ -41,5 +42,13 @@ router.get('/admin-dashboard', (req, res, next) => {
     }
     next();
 }, aiController.getAdminAIDashboard);
+
+router.post('/review-anomaly', (req, res, next) => {
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    if (token) {
+        return authMiddleware.authUser(req, res, next);
+    }
+    return res.status(401).json({ message: 'Unauthorized' });
+}, aiController.reviewAnomaly);
 
 module.exports = router;

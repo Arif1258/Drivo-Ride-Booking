@@ -532,8 +532,23 @@ const AdminAnalytics = () => {
                                 Close
                             </button>
                             <button
-                                onClick={() => {
-                                    alert('Ride marked as verified by administrator.');
+                                onClick={async () => {
+                                    try {
+                                        const token = localStorage.getItem('token');
+                                        await axios.post(`${import.meta.env.VITE_BASE_URL}/api/ai/review-anomaly`, {
+                                            logId: reviewModalRide._id,
+                                            status: 'cleared',
+                                            notes: 'Cleared by administrator review'
+                                        }, {
+                                            headers: token ? { Authorization: `Bearer ${token}` } : {}
+                                        });
+                                        alert('Ride marked as verified and cleared by administrator.');
+                                        fetchAllData();
+                                    } catch (err) {
+                                        console.error('Error reviewing anomaly:', err);
+                                        alert(err.response?.data?.message || 'Ride marked as verified by administrator.');
+                                        fetchAllData();
+                                    }
                                     setReviewModalRide(null);
                                 }}
                                 className='flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition-all'

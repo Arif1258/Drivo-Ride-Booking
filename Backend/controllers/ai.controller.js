@@ -89,6 +89,22 @@ module.exports.getAllDemandZones = async (req, res) => {
 module.exports.getDriverRepositioning = async (req, res) => {
     try {
         const captain = req.captain;
+
+        // Check if captain is currently engaged on an active ride
+        const activeRide = await rideModel.findOne({
+            captain: captain._id,
+            status: { $in: ['accepted', 'ongoing', 'payment-pending'] }
+        });
+
+        if (activeRide) {
+            return res.status(200).json({
+                hasRecommendation: false,
+                isIdle: false,
+                message: `You are currently engaged in an active trip to ${activeRide.destination}. Repositioning advice applies when idle.`,
+                recommendedZone: null
+            });
+        }
+
         let driverLoc = null;
 
         if (captain.location?.coordinates && captain.location.coordinates.length === 2) {
@@ -99,7 +115,7 @@ module.exports.getDriverRepositioning = async (req, res) => {
         }
 
         const advice = await repositioningService.getDriverRepositioningAdvice(driverLoc);
-        return res.status(200).json(advice);
+        return res.status(200).json({ ...advice, isIdle: true });
     } catch (err) {
         console.error('Driver repositioning error:', err);
         return res.status(500).json({ message: err.message });
@@ -161,23 +177,41 @@ module.exports.evaluateRisk = async (req, res) => {
 module.exports.supportChat = async (req, res) => {
     try {
         const { query } = req.body;
-        const userId = req.user?._id || req.body.userId;
+        // Strict tenant isolation: only use verified identity from verified token
+        const userId = req.user?._id ? req.user._id.toString() : null;
+        const captainId = req.captain?._id ? req.captain._id.toString() : null;
+        const userType = req.captain ? 'captain' : 'user';
 
         if (!query) {
             return res.status(400).json({ message: 'Query message is required' });
         }
 
-        const response = await aiSupportService.askZenSupport(query, userId);
+        const response = await aiSupportService.askZenSupport(query, { userId, captainId, userType });
+        const defaultActions = userType === 'captain'
+            ? ['Where is my rider?', 'What is the pickup location?', 'How much have I earned today?', 'What is my acceptance rate?']
+            : ['Where is my driver?', "What's my ETA?", 'Show me my latest ride', 'Why was surge pricing applied?'];
+
         return res.status(200).json({
             text: response.text,
             confidence: 0.98,
             source: response.source || 'zen_ai',
             cardType: response.cardType,
             cardData: response.cardData,
-            suggestedActions: ['Where is my driver?', "What's my ETA?", 'Who is my driver?', 'Cancel ride']
+            suggestedActions: response.suggestedActions || defaultActions
         });
     } catch (err) {
         console.error('Zen support assistant error:', err);
+        return res.status(500).json({ message: err.message });
+    }
+};
+
+// Dynamic Demand Hotspots (Clusters from real ride data)
+module.exports.getDemandHotspots = async (req, res) => {
+    try {
+        const hotspots = await demandPredictionService.getDynamicHotspots();
+        return res.status(200).json(hotspots);
+    } catch (err) {
+        console.error('Demand hotspots error:', err);
         return res.status(500).json({ message: err.message });
     }
 };
@@ -270,6 +304,30 @@ module.exports.getAdminAIDashboard = async (req, res) => {
         });
     } catch (err) {
         console.error('Admin AI dashboard error:', err);
+        return res.status(500).json({ message: err.message });
+    }
+};
+
+module.exports.reviewAnomaly = async (req, res) => {
+    try {
+        const { logId, status, reviewNotes } = req.body;
+        if (!logId || !status) {
+            return res.status(400).json({ message: 'logId and status are required' });
+        }
+
+        const log = await aiRiskLogModel.findByIdAndUpdate(logId, {
+            status,
+            reviewNotes: reviewNotes || 'Reviewed and verified by administrator',
+            reviewedBy: req.user?.fullname?.firstname || 'Admin'
+        }, { new: true });
+
+        if (!log) {
+            return res.status(404).json({ message: 'Anomaly record not found' });
+        }
+
+        return res.status(200).json({ message: 'Anomaly review status updated', log });
+    } catch (err) {
+        console.error('Review anomaly error:', err);
         return res.status(500).json({ message: err.message });
     }
 };

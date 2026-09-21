@@ -54,4 +54,27 @@ router.get('/pending-rides',
     rideController.getPendingRides
 )
 
+router.post('/cancel',
+    authMiddleware.authUserOrCaptain,
+    body('rideId').isMongoId().withMessage('Invalid ride id'),
+    rideController.cancelRide
+)
+
+router.post('/rate',
+    authMiddleware.authUser,
+    body('rideId').isMongoId().withMessage('Invalid ride id'),
+    body('rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+    rideController.rateRide
+)
+
+router.get('/my-rides',
+    authMiddleware.authUser,
+    rideController.getUserRides
+)
+
+router.get('/captain-rides',
+    authMiddleware.authCaptain,
+    rideController.getCaptainRides
+)
+
 module.exports = router;

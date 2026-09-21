@@ -72,9 +72,17 @@ const Home = () => {
             navigate('/riding', { state: { ride: startedRide } });
         });
 
+        socket.on('ride-cancelled', (data) => {
+            alert(data?.message || 'Ride was cancelled.');
+            setWaitingForDriver(false);
+            setVehicleFound(false);
+            setRide(null);
+        });
+
         return () => {
             socket.off('ride-confirmed');
             socket.off('ride-started');
+            socket.off('ride-cancelled');
         };
     }, [socket, navigate]);
 
@@ -224,18 +232,45 @@ const Home = () => {
 
     async function createRide() {
         try {
-            await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/create`, {
+            const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/create`, {
                 pickup,
                 destination,
                 vehicleType
             }, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
+            if (response.data) {
+                setRide(response.data);
+            }
         } catch (error) {
             console.error('Error creating ride:', error);
             alert(error.response?.data?.message || 'Failed to request ride.');
             setVehicleFound(false);
             setConfirmRidePanel(true);
+        }
+    }
+
+    async function cancelRide(reason = 'User cancelled ride') {
+        try {
+            if (ride?._id) {
+                await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/cancel`, {
+                    rideId: ride._id,
+                    reason
+                }, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                });
+            }
+            setWaitingForDriver(false);
+            setVehicleFound(false);
+            setConfirmRidePanel(false);
+            setVehiclePanel(false);
+            setRide(null);
+        } catch (error) {
+            console.error('Error cancelling ride:', error);
+            alert(error.response?.data?.message || 'Failed to cancel ride.');
+            setWaitingForDriver(false);
+            setVehicleFound(false);
+            setRide(null);
         }
     }
 
@@ -330,6 +365,24 @@ const Home = () => {
                                 placeholder='Where is your destination?'
                             />
                         </div>
+
+                        {/* Quick Destination Chips */}
+                        <div className='flex items-center gap-1.5 overflow-x-auto pt-1 pb-2 no-scrollbar'>
+                            <span className='text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0'>Quick:</span>
+                            {['Railway Station', 'Airport Terminal', 'University Campus', 'City Center'].map((place, idx) => (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => {
+                                        setDestination(place);
+                                        if (!pickup) setPickup('Current Location');
+                                    }}
+                                    className='shrink-0 text-xs font-medium px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 rounded-full border border-slate-200/80 transition-colors'
+                                >
+                                    {place}
+                                </button>
+                            ))}
+                        </div>
                     </form>
 
                     <button
@@ -378,6 +431,7 @@ const Home = () => {
             <div ref={vehicleFoundRef} className='fixed w-full z-30 bottom-0 translate-y-full bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
                 <LookingForDriver
                     createRide={createRide}
+                    cancelRide={cancelRide}
                     pickup={pickup}
                     destination={destination}
                     fare={fare}
@@ -389,11 +443,28 @@ const Home = () => {
             <div ref={waitingForDriverRef} className='fixed w-full z-30 bottom-0 bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
                 <WaitingForDriver
                     ride={ride}
+                    cancelRide={cancelRide}
                     setVehicleFound={setVehicleFound}
                     setWaitingForDriver={setWaitingForDriver}
                     waitingForDriver={waitingForDriver} 
                 />
             </div>
+
+            {/* Floating AI Assistant Trigger (Bottom-Right Corner) */}
+            <button
+                onClick={() => setSupportOpen(true)}
+                className='fixed bottom-6 right-6 z-40 h-14 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center gap-2.5 hover:scale-105 active:scale-95 transition-all group ring-4 ring-white/90'
+                aria-label="Open Zen AI Assistant"
+            >
+                <div className='relative'>
+                    <Bot className='h-6 w-6 text-white group-hover:rotate-12 transition-transform' />
+                    <span className='absolute -top-1 -right-1 h-3 w-3 bg-emerald-400 rounded-full border-2 border-indigo-600 animate-pulse'></span>
+                </div>
+                <div className='text-left hidden sm:block pr-1'>
+                    <div className='text-xs font-black tracking-tight leading-none'>Zen Copilot</div>
+                    <div className='text-[10px] text-indigo-200 font-medium leading-tight'>Ask ETA & live fare</div>
+                </div>
+            </button>
 
             {/* AI Customer Support Assistant Modal */}
             <SupportAssistantModal

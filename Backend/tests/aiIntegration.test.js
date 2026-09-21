@@ -1,8 +1,13 @@
 const request = require('supertest');
 const app = require('../app');
 const mongoose = require('mongoose');
+const connectToDb = require('../db/db');
 
 describe('AI API Endpoints Integration', () => {
+    beforeAll(async () => {
+        await connectToDb();
+    });
+
     afterAll(async () => {
         await mongoose.connection.close();
     });

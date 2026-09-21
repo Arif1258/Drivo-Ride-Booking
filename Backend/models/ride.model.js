@@ -89,6 +89,49 @@ const rideSchema = new mongoose.Schema({
     },
     completedAt: {
         type: Date
+    },
+    rating: {
+        type: Number,
+        min: 1,
+        max: 5
+    },
+    feedback: {
+        type: String
+    },
+    surgeMultiplier: {
+        type: Number,
+        default: 1.0
+    },
+    surgeReason: {
+        type: String
+    },
+    cancellationReason: {
+        type: String
+    },
+    cancelledBy: {
+        type: String,
+        enum: ['user', 'captain', 'system']
+    },
+    matchFactors: {
+        proximityScore: Number,
+        etaScore: Number,
+        ratingScore: Number,
+        acceptanceScore: Number,
+        reliabilityScore: Number,
+        vehicleScore: Number,
+        reason: String
+    },
+    baseFare: {
+        type: Number,
+        default: 50
+    },
+    distanceFare: {
+        type: Number,
+        default: 0
+    },
+    timeFare: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 

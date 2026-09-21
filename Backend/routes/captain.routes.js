@@ -34,4 +34,6 @@ router.get('/location/:id', authMiddleware.authUser, captainController.getCaptai
 
 router.post('/update-location', authMiddleware.authCaptain, captainController.updateLocation)
 
+router.post('/toggle-status', authMiddleware.authCaptain, captainController.toggleStatus)
+
 module.exports = router;

@@ -267,6 +267,66 @@ async function seedHistoricalRidesIfEmpty() {
     }
 }
 
+async function getDynamicHotspots() {
+    try {
+        const zonePredictions = await predictAllZones();
+        
+        let rideStatsByZone = {};
+        if (mongoose.connection.readyState === 1) {
+            const rides = await rideModel.find({}).sort({ createdAt: -1 }).limit(100);
+            for (const r of rides) {
+                const zone = findNearestZone(r.originCoordinates || r.pickup);
+                if (zone) {
+                    rideStatsByZone[zone.id] = (rideStatsByZone[zone.id] || 0) + 1;
+                }
+            }
+        }
+
+        return zonePredictions.map(z => {
+            const historicalVolume = rideStatsByZone[z.zoneId] || 0;
+            const dynamicExpectedRides = Math.max(z.expectedRides, historicalVolume * 2);
+            const dynamicRatio = parseFloat((dynamicExpectedRides / Math.max(1, z.availableDrivers)).toFixed(2));
+            const intensity = dynamicRatio >= 1.4 ? 'SURGE' : dynamicRatio >= 1.15 ? 'HIGH' : dynamicRatio >= 0.8 ? 'MEDIUM' : 'LOW';
+
+            return {
+                id: z.zoneId,
+                name: z.zoneName,
+                area: z.area,
+                center: z.center,
+                radiusMeters: (z.radiusKm || 3) * 1000,
+                radiusKm: z.radiusKm || 3,
+                intensity,
+                predictedDemand: intensity,
+                expectedRides: dynamicExpectedRides,
+                availableDrivers: z.availableDrivers,
+                demandSupplyRatio: dynamicRatio,
+                surgeMultiplier: intensity === 'SURGE' ? 1.5 : intensity === 'HIGH' ? 1.25 : 1.0,
+                recommendation: intensity === 'SURGE'
+                    ? `Critical surge in ${z.area}! Highest priority repositioning zone.`
+                    : intensity === 'HIGH'
+                        ? `Elevated demand in ${z.area}. Excellent ride dispatch probability.`
+                        : `Normal traffic and steady demand in ${z.area}.`
+            };
+        });
+    } catch (err) {
+        console.error('getDynamicHotspots error:', err.message);
+        const fallback = await predictAllZones();
+        return fallback.map(f => ({
+            id: f.zoneId,
+            name: f.zoneName,
+            area: f.area,
+            center: f.center,
+            radiusMeters: 3000,
+            radiusKm: 3,
+            intensity: f.demandLevel === 'VERY_HIGH' ? 'SURGE' : f.demandLevel,
+            expectedRides: f.expectedRides,
+            availableDrivers: f.availableDrivers,
+            demandSupplyRatio: f.demandSupplyRatio,
+            surgeMultiplier: f.surgeMultiplier
+        }));
+    }
+}
+
 module.exports = {
     ZONES,
     HOURLY_FACTORS,
@@ -276,6 +336,7 @@ module.exports = {
     findNearestZone,
     predictZoneDemand,
     predictAllZones,
+    getDynamicHotspots,
     classifyDemandLevel,
     seedHistoricalRidesIfEmpty
 };

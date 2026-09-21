@@ -18,7 +18,9 @@ const CaptainHome = () => {
     const [repositionAdvice, setRepositionAdvice] = useState(null);
     const [demandModalOpen, setDemandModalOpen] = useState(false);
     const [allZones, setAllZones] = useState([]);
+    const [demandHotspots, setDemandHotspots] = useState([]);
     const [supportOpen, setSupportOpen] = useState(false);
+    const [dismissReposition, setDismissReposition] = useState(false);
 
     const ridePopupPanelRef = useRef(null);
     const confirmRidePopupPanelRef = useRef(null);
@@ -29,6 +31,42 @@ const CaptainHome = () => {
 
     const { socket } = useContext(SocketContext);
     const { captain } = useContext(CaptainDataContext);
+    const [captainStatus, setCaptainStatus] = useState(captain?.status || 'active');
+
+    const toggleStatus = async () => {
+        try {
+            const res = await axios.post(`${import.meta.env.VITE_BASE_URL}/captains/toggle-status`, {}, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('captain-token')}` }
+            });
+            if (res.data?.captain) {
+                setCaptainStatus(res.data.captain.status);
+            }
+        } catch (err) {
+            console.error("Error toggling status:", err.message);
+        }
+    };
+
+    const handleRepositionNavigate = async (zone) => {
+        try {
+            const loc = {
+                ltd: zone.center.ltd,
+                lng: zone.center.lng
+            };
+            socket.emit('update-location-captain', {
+                userId: captain._id,
+                location: loc
+            });
+            await axios.post(`${import.meta.env.VITE_BASE_URL}/captains/update-location`, {
+                location: loc
+            }, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('captain-token')}` }
+            });
+            alert(`🧭 Navigation activated toward ${zone.area}! Location updated.`);
+            setDismissReposition(true);
+        } catch (err) {
+            console.error("Reposition error:", err.message);
+        }
+    };
 
     useEffect(() => {
         console.log("Captain connected");
@@ -87,8 +125,17 @@ const CaptainHome = () => {
             console.log("Captain dashboard updated");
         });
 
+        socket.on('ride-cancelled', (data) => {
+            console.log("Captain received ride-cancelled event:", data);
+            alert(data?.message || 'Ride was cancelled.');
+            setRidePopupPanel(false);
+            setConfirmRidePopupPanel(false);
+            setRide(null);
+        });
+
         return () => {
             socket.off('new-ride');
+            socket.off('ride-cancelled');
         };
     }, [socket]);
 
@@ -127,11 +174,12 @@ const CaptainHome = () => {
             if (!token) return;
 
             try {
-                const [repositionRes, zonesRes] = await Promise.allSettled([
+                const [repositionRes, zonesRes, hotspotsRes] = await Promise.allSettled([
                     axios.get(`${import.meta.env.VITE_BASE_URL}/api/ai/driver-reposition`, {
                         headers: { Authorization: `Bearer ${token}` }
                     }),
-                    axios.get(`${import.meta.env.VITE_BASE_URL}/api/ai/demand-zones`)
+                    axios.get(`${import.meta.env.VITE_BASE_URL}/api/ai/demand-zones`),
+                    axios.get(`${import.meta.env.VITE_BASE_URL}/api/ai/demand-hotspots`)
                 ]);
 
                 if (repositionRes.status === 'fulfilled') {
@@ -139,6 +187,9 @@ const CaptainHome = () => {
                 }
                 if (zonesRes.status === 'fulfilled') {
                     setAllZones(zonesRes.value.data);
+                }
+                if (hotspotsRes.status === 'fulfilled' && Array.isArray(hotspotsRes.value.data)) {
+                    setDemandHotspots(hotspotsRes.value.data);
                 }
             } catch (err) {
                 console.log('AI data fetch error:', err.message);
@@ -229,10 +280,20 @@ const CaptainHome = () => {
                     <div className='h-10 w-10 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20'>
                         <span className='font-black text-xl'>D</span>
                     </div>
-                    <div className='px-3 py-1.5 bg-slate-900/80 backdrop-blur border border-white/10 rounded-full flex items-center gap-2 shadow-lg'>
-                        <span className='h-2 w-2 rounded-full bg-emerald-500 animate-pulse'></span>
-                        <span className='text-[10px] font-bold uppercase tracking-wider text-emerald-400'>Online</span>
-                    </div>
+                    <button
+                        onClick={toggleStatus}
+                        className={`px-3 py-1.5 backdrop-blur border rounded-full flex items-center gap-2 shadow-lg transition-all cursor-pointer ${
+                            captainStatus === 'active'
+                            ? 'bg-emerald-950/80 border-emerald-500/40 hover:bg-emerald-900/80'
+                            : 'bg-slate-900/80 border-slate-700 hover:bg-slate-800'
+                        }`}
+                        title="Click to toggle Online/Offline"
+                    >
+                        <span className={`h-2 w-2 rounded-full ${captainStatus === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`}></span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${captainStatus === 'active' ? 'text-emerald-400' : 'text-slate-400'}`}>
+                            {captainStatus === 'active' ? 'Online' : 'Offline'}
+                        </span>
+                    </button>
                 </div>
 
                 <div className='flex items-center gap-2 pointer-events-auto'>
@@ -264,20 +325,17 @@ const CaptainHome = () => {
 
             {/* Live Map */}
             <div ref={mapContainerRef} style={{ height: '60vh' }} className='w-screen z-10 relative'>
-                <LiveTracking ride={ride} />
+                <LiveTracking ride={ride} hotspots={demandHotspots} />
 
                 {/* AI Smart Repositioning Floating Card */}
-                {repositionAdvice && (
+                {repositionAdvice && !dismissReposition && (
                     <div className='absolute bottom-3 left-4 right-4 z-20 pointer-events-auto'>
-                        <div
-                            onClick={() => setDemandModalOpen(true)}
-                            className='bg-slate-900/95 backdrop-blur-md border border-amber-500/30 p-3 sm:p-3.5 rounded-2xl shadow-xl flex items-center justify-between cursor-pointer hover:border-amber-400/60 transition-all'
-                        >
+                        <div className='bg-slate-900/95 backdrop-blur-md border border-amber-500/30 p-3 sm:p-3.5 rounded-2xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3'>
                             <div className='flex items-center gap-3'>
                                 <div className='h-9 w-9 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0'>
                                     <Compass className='h-5 w-5 animate-spin-slow' />
                                 </div>
-                                <div className='pr-2'>
+                                <div>
                                     <div className='flex items-center gap-2'>
                                         <span className='text-[10px] bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider'>
                                             AI Repositioning
@@ -291,7 +349,21 @@ const CaptainHome = () => {
                                     </p>
                                 </div>
                             </div>
-                            <ChevronRight className='h-5 w-5 text-slate-400 flex-shrink-0' />
+                            <div className='flex items-center gap-2 self-end sm:self-center'>
+                                <button
+                                    onClick={() => handleRepositionNavigate(repositionAdvice.recommendedZone)}
+                                    className='px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow transition-all'
+                                >
+                                    Reposition Now
+                                </button>
+                                <button
+                                    onClick={() => setDismissReposition(true)}
+                                    className='h-7 w-7 bg-slate-800 hover:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors'
+                                    title="Dismiss"
+                                >
+                                    <X className='h-3.5 w-3.5' />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -392,6 +464,22 @@ const CaptainHome = () => {
                     </div>
                 </div>
             )}
+
+            {/* Floating AI Assistant Trigger (Bottom-Right Corner) */}
+            <button
+                onClick={() => setSupportOpen(true)}
+                className='fixed bottom-6 right-6 z-40 h-14 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-full shadow-2xl shadow-emerald-500/40 flex items-center gap-2.5 hover:scale-105 active:scale-95 transition-all group ring-4 ring-slate-900/90'
+                aria-label="Open Zen Captain AI Copilot"
+            >
+                <div className='relative'>
+                    <Bot className='h-6 w-6 text-white group-hover:rotate-12 transition-transform' />
+                    <span className='absolute -top-1 -right-1 h-3 w-3 bg-cyan-300 rounded-full border-2 border-emerald-600 animate-pulse'></span>
+                </div>
+                <div className='text-left hidden sm:block pr-1'>
+                    <div className='text-xs font-black tracking-tight leading-none'>Zen Copilot</div>
+                    <div className='text-[10px] text-emerald-200 font-medium leading-tight'>Driver AI & Shift Stats</div>
+                </div>
+            </button>
 
             {/* AI Customer Support Assistant Modal */}
             <SupportAssistantModal

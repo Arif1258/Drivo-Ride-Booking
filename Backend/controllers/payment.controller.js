@@ -42,6 +42,13 @@ module.exports.processPayment = async (req, res) => {
         ride.status = 'completed';
         await ride.save();
 
+        // Increment captain earnings and completed ride count
+        if (ride.captain?._id) {
+            await captainModel.findByIdAndUpdate(ride.captain._id, {
+                $inc: { totalEarnings: ride.fare, totalRides: 1 }
+            });
+        }
+
         // Notify captain in real-time
         sendMessageToUser(ride.captain._id, {
             event: 'payment-completed',

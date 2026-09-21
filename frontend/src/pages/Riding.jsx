@@ -19,6 +19,25 @@ const Riding = () => {
     const [paymentDetails, setPaymentDetails] = useState(null);
     const [cardDetails, setCardDetails] = useState({ number: '', expiry: '', cvv: '' });
     const [upiId, setUpiId] = useState('');
+    const [rating, setRating] = useState(5);
+    const [feedback, setFeedback] = useState('');
+    const [ratingSubmitted, setRatingSubmitted] = useState(false);
+
+    const submitRating = async () => {
+        try {
+            await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/rate`, {
+                rideId: ride?._id,
+                rating,
+                feedback
+            }, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            setRatingSubmitted(true);
+        } catch (err) {
+            console.error("Error submitting rating:", err.message);
+            setRatingSubmitted(true);
+        }
+    };
 
     useEffect(() => {
         socket.on("ride-ended", (data) => {
@@ -333,6 +352,44 @@ const Riding = () => {
                                     </div>
                                 </div>
 
+                                {/* Driver Rating Section */}
+                                {!ratingSubmitted ? (
+                                    <div className='bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center print:hidden'>
+                                        <h4 className='text-sm font-bold text-gray-800'>Rate your Captain</h4>
+                                        <div className='flex justify-center gap-2 my-2'>
+                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                <button
+                                                    key={star}
+                                                    type='button'
+                                                    onClick={() => setRating(star)}
+                                                    className={`text-2xl transition-transform hover:scale-125 ${
+                                                        star <= rating ? 'text-amber-400' : 'text-gray-300'
+                                                    }`}
+                                                >
+                                                    ★
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <input
+                                            type='text'
+                                            placeholder='Add feedback (optional)...'
+                                            value={feedback}
+                                            onChange={(e) => setFeedback(e.target.value)}
+                                            className='w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500'
+                                        />
+                                        <button
+                                            onClick={submitRating}
+                                            className='mt-2 w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors'
+                                        >
+                                            Submit Rating
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className='bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-center print:hidden'>
+                                        <p className='text-xs font-bold text-emerald-700'>✓ Thank you for your feedback!</p>
+                                    </div>
+                                )}
+
                                 {/* Controls */}
                                 <div className='mt-8 space-y-3 print:hidden'>
                                     <button 
@@ -342,7 +399,12 @@ const Riding = () => {
                                         <i className="ri-printer-line"></i> Print Receipt
                                     </button>
                                     <button 
-                                        onClick={() => navigate('/home')}
+                                        onClick={async () => {
+                                            if (!ratingSubmitted && ride?._id) {
+                                                await submitRating();
+                                            }
+                                            navigate('/home');
+                                        }}
                                         className='w-full py-4 bg-black hover:bg-slate-900 text-white font-bold rounded-xl transition-all'
                                     >
                                         Back to Home

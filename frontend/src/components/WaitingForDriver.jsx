@@ -11,8 +11,18 @@ const WaitingForDriver = (props) => {
         <div className='flex items-center gap-3'>
           <img className='h-12 w-12 rounded-full object-cover border' src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRdlMd7stpWUCmjpfRjUsQ72xSWikidbgaI1w&s" alt="Driver" />
           <div>
-            <h2 className='text-lg font-bold capitalize text-gray-800'>{props.ride?.captain.fullname.firstname}</h2>
+            <div className='flex items-center gap-2'>
+              <h2 className='text-lg font-bold capitalize text-gray-800'>{props.ride?.captain.fullname.firstname}</h2>
+              <span className='text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded'>
+                ⭐ {props.ride?.captain.rating || 4.8}
+              </span>
+            </div>
             <p className='text-xs text-gray-500 capitalize'>{props.ride?.captain.vehicle.color} • {props.ride?.captain.vehicle.vehicleType}</p>
+            {props.ride?.matchFactors?.totalScore && (
+              <span className='inline-block text-[10px] text-indigo-700 bg-indigo-50 font-bold px-2 py-0.5 rounded-full border border-indigo-100 mt-0.5'>
+                Smart Match Score: {props.ride.matchFactors.totalScore}/100
+              </span>
+            )}
           </div>
         </div>
         <div className='text-right'>
@@ -56,6 +66,19 @@ const WaitingForDriver = (props) => {
             </div>
           </div>
         </div>
+
+        <button
+          onClick={() => {
+            if (props.cancelRide) {
+              props.cancelRide();
+            } else {
+              props.setWaitingForDriver(false);
+            }
+          }}
+          className='w-full mt-4 py-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 transition-all text-sm'
+        >
+          Cancel Ride
+        </button>
       </div>
     </div>
   );

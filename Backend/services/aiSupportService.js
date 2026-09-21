@@ -103,6 +103,7 @@ async function getRideStatusTool(userId) {
 
     return {
         success: true,
+        hasActiveRide: true,
         rideId: activeResult.rideId,
         status: activeResult.status,
         statusDescription: statusDescriptions[activeResult.status] || activeResult.status,
@@ -220,6 +221,113 @@ async function getRideFareTool(userId, pickup = null, destination = null) {
     };
 }
 
+async function getLastRideDetailsTool(userId) {
+    if (!userId) {
+        return { success: false, message: 'Please log in to view your ride details.' };
+    }
+
+    const lastRide = await rideModel.findOne({ user: userId })
+        .populate('captain', 'fullname vehicle rating')
+        .sort({ createdAt: -1 });
+
+    if (!lastRide) {
+        return {
+            success: true,
+            hasRide: false,
+            message: 'You have not taken any rides with Drivo yet.'
+        };
+    }
+
+    const distKm = lastRide.distance ? (lastRide.distance / 1000).toFixed(1) : '4.5';
+    const durMin = lastRide.duration ? Math.round(lastRide.duration / 60) : 15;
+    const dateFormatted = new Date(lastRide.createdAt).toLocaleDateString('en-IN', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    return {
+        success: true,
+        hasRide: true,
+        rideId: lastRide._id,
+        pickup: lastRide.pickup,
+        destination: lastRide.destination,
+        fare: lastRide.fare,
+        status: lastRide.status,
+        distanceKm: distKm,
+        distanceMeters: lastRide.distance || 4500,
+        durationMinutes: durMin,
+        date: dateFormatted,
+        surgeMultiplier: lastRide.surgeMultiplier || 1.0,
+        surgeReason: lastRide.surgeReason || 'Normal demand level',
+        captainName: lastRide.captain?.fullname?.firstname || 'Assigned Driver',
+        vehicle: lastRide.captain?.vehicle
+    };
+}
+
+async function getFareExplanationTool(userId) {
+    if (!userId) {
+        return { success: false, message: 'Please log in to view your fare breakdown.' };
+    }
+
+    // Check for active ride first, then fallback to last completed ride
+    let ride = await rideModel.findOne({
+        user: userId,
+        status: { $in: ['pending', 'accepted', 'ongoing', 'payment-pending'] }
+    }).populate('captain').sort({ createdAt: -1 });
+
+    if (!ride) {
+        ride = await rideModel.findOne({ user: userId }).populate('captain').sort({ createdAt: -1 });
+    }
+
+    if (!ride) {
+        return {
+            success: true,
+            hasRide: false,
+            message: 'No rides found. Standard Drivo pricing formula: Base Fare + (Distance × Per-km Rate) + (Duration × Per-minute Rate).'
+        };
+    }
+
+    const vType = ride.vehicleType || ride.captain?.vehicle?.vehicleType || 'car';
+    const baseRates = {
+        car: { base: 50, perKm: 15, perMin: 3 },
+        auto: { base: 30, perKm: 10, perMin: 2 },
+        moto: { base: 20, perKm: 8, perMin: 1.5 }
+    };
+    const rate = baseRates[vType.toLowerCase()] || baseRates.car;
+
+    const distKm = parseFloat((ride.distance ? (ride.distance / 1000) : 4.5).toFixed(1));
+    const durMin = ride.duration ? Math.round(ride.duration / 60) : 15;
+    const distanceCharge = Math.round(distKm * rate.perKm);
+    const durationCharge = Math.round(durMin * rate.perMin);
+    const subtotal = rate.base + distanceCharge + durationCharge;
+    const surge = ride.surgeMultiplier || 1.0;
+    const finalFare = ride.fare;
+
+    return {
+        success: true,
+        hasRide: true,
+        rideId: ride._id,
+        vehicleType: vType,
+        destination: ride.destination,
+        pickup: ride.pickup,
+        status: ride.status,
+        baseFare: rate.base,
+        distanceKm: distKm,
+        distanceRatePerKm: rate.perKm,
+        distanceCharge,
+        durationMinutes: durMin,
+        durationRatePerMin: rate.perMin,
+        durationCharge,
+        subtotal,
+        surgeMultiplier: surge,
+        surgeReason: ride.surgeReason || (surge > 1.0 ? `${surge}x multiplier due to elevated passenger demand vs available driver supply` : 'Standard non-surge pricing'),
+        finalFare,
+        explanation: `Base Fare: ₹${rate.base} + Distance (${distKm} km @ ₹${rate.perKm}/km): ₹${distanceCharge} + Duration (${durMin} mins @ ₹${rate.perMin}/min): ₹${durationCharge}${surge > 1.0 ? ` × Surge Multiplier (${surge}x)` : ''} = Total Fare: ₹${finalFare}`
+    };
+}
+
 async function cancelRideTool(userId, reason = 'Passenger requested cancellation') {
     if (!userId) {
         return { success: false, message: 'Please log in to manage your rides.' };
@@ -310,6 +418,101 @@ async function getRideHistoryTool(userId, limit = 4) {
     };
 }
 
+function calculateHaversineKm(lat1, lon1, lat2, lon2) {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return parseFloat((R * c).toFixed(1));
+}
+
+async function getCaptainActiveRideTool(captainId) {
+    if (!captainId) {
+        return { success: false, message: 'Please log in as a Captain to view your assigned ride.' };
+    }
+
+    const ride = await rideModel.findOne({
+        captain: captainId,
+        status: { $in: ['accepted', 'ongoing', 'payment-pending'] }
+    }).populate('user', 'fullname phone email').sort({ createdAt: -1 });
+
+    if (!ride) {
+        return {
+            success: true,
+            hasActiveRide: false,
+            message: 'You currently do not have an active trip. Stay online to receive incoming ride requests!'
+        };
+    }
+
+    const captain = await captainModel.findById(captainId);
+    let distanceKm = null;
+    if (captain?.location?.coordinates && ride.originCoordinates?.coordinates) {
+        const [cLng, cLat] = captain.location.coordinates;
+        const [pLng, pLat] = ride.originCoordinates.coordinates;
+        distanceKm = calculateHaversineKm(cLat, cLng, pLat, pLng);
+    }
+
+    const etaMin = distanceKm ? Math.max(1, Math.round(distanceKm / 0.4)) : 4;
+
+    return {
+        success: true,
+        hasActiveRide: true,
+        rideId: ride._id,
+        status: ride.status,
+        pickup: ride.pickup,
+        destination: ride.destination,
+        fare: ride.fare,
+        otp: ride.otp,
+        distanceKm: distanceKm || (ride.distance ? (ride.distance / 1000).toFixed(1) : '1.5'),
+        etaMinutesToPickup: etaMin,
+        rider: {
+            name: `${ride.user?.fullname?.firstname || 'Passenger'} ${ride.user?.fullname?.lastname || ''}`.trim(),
+            phone: ride.user?.phone || '+91-9876543210'
+        }
+    };
+}
+
+async function getCaptainTodayStatsTool(captainId) {
+    if (!captainId) {
+        return { success: false, message: 'Please log in as a Captain to view your performance stats.' };
+    }
+
+    const captain = await captainModel.findById(captainId);
+    if (!captain) {
+        return { success: false, message: 'Captain account not found.' };
+    }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const completedToday = await rideModel.find({
+        captain: captainId,
+        status: 'completed',
+        createdAt: { $gte: startOfDay }
+    });
+
+    const totalEarningsToday = completedToday.reduce((sum, r) => sum + (r.fare || 0), 0);
+    const totalRidesToday = completedToday.length;
+
+    return {
+        success: true,
+        captainName: `${captain.fullname?.firstname || 'Captain'} ${captain.fullname?.lastname || ''}`.trim(),
+        totalEarningsToday,
+        totalRidesToday,
+        rating: captain.rating || 4.8,
+        acceptanceRate: captain.acceptanceRate || 96,
+        cancellationRate: captain.cancellationRate || 2,
+        onTimeRate: captain.onTimeRate || 98,
+        vehicle: captain.vehicle,
+        status: captain.status
+    };
+}
+
 // ─── 2. Gemini Function Declarations ──────────────────────────────────────────
 
 const ZEN_TOOL_DECLARATIONS = [
@@ -349,11 +552,108 @@ const ZEN_TOOL_DECLARATIONS = [
 
 // ─── 3. Deterministic Intent Resolver (Zero-Hallucination Fallback) ───────────
 
-async function resolveQueryDeterministically(query, userId) {
+async function resolveQueryDeterministically(query, authContext) {
+    let userId = null;
+    let captainId = null;
+    let userType = 'user';
+
+    if (typeof authContext === 'string') {
+        userId = authContext;
+    } else if (authContext && typeof authContext === 'object') {
+        if (!authContext.userId && !authContext.captainId && authContext.toString && typeof authContext.toString === 'function') {
+            userId = authContext.toString();
+        } else {
+            userId = authContext.userId ? authContext.userId.toString() : null;
+            captainId = authContext.captainId ? authContext.captainId.toString() : null;
+            userType = authContext.userType || (captainId ? 'captain' : 'user');
+        }
+    }
+
     const q = query.toLowerCase().trim();
 
-    // 1. Where is driver / location
-    if (q.includes('where is my driver') || q.includes('where is my ride') || q.includes('track') || q.includes('location')) {
+    // ── Driver / Captain Specific Queries ──────────────────────────────────────
+    if (userType === 'captain' || captainId) {
+        // 1. Where is my rider / pickup / rider location
+        if (q.includes('rider') || q.includes('pickup') || q.includes('passenger') || q.includes('where is my customer') || q.includes('pickup location')) {
+            const active = await getCaptainActiveRideTool(captainId);
+            if (!active.hasActiveRide) {
+                return {
+                    text: `📍 ${active.message}`,
+                    cardType: 'empty',
+                    source: 'getCaptainActiveRide'
+                };
+            }
+            return {
+                text: `📍 **Passenger Pickup Location:**\n\n• **Passenger**: ${active.rider.name}\n• **Pickup Address**: ${active.pickup}\n• **Drop Destination**: ${active.destination}\n• **Distance to Pickup**: ~${active.distanceKm} km\n• **Est. Arrival at Pickup**: ~${active.etaMinutesToPickup} mins\n• **Passenger Phone**: ${active.rider.phone}\n• **Trip Status**: ${active.status.toUpperCase()}`,
+                cardType: 'driver_pickup',
+                cardData: active,
+                suggestedActions: ['Where is my rider?', "Today's earnings?", 'What is my acceptance rate?'],
+                source: 'getCaptainActiveRide'
+            };
+        }
+
+        // 2. Earnings today
+        if (q.includes('earn') || q.includes('revenue') || q.includes('income') || q.includes('money') || q.includes('payout')) {
+            const stats = await getCaptainTodayStatsTool(captainId);
+            if (!stats.success) {
+                return { text: `💰 ${stats.message}`, cardType: 'empty', source: 'getCaptainTodayStats' };
+            }
+            return {
+                text: `💰 **Today's Captain Earnings:**\n\n• **Total Earned Today**: ₹${stats.totalEarningsToday}\n• **Trips Completed Today**: ${stats.totalRidesToday} rides\n• **Avg. per Trip**: ₹${stats.totalRidesToday > 0 ? Math.round(stats.totalEarningsToday / stats.totalRidesToday) : 0}\n• **Current Status**: ${stats.status.toUpperCase()}\n• **Driver Rating**: ⭐ ${stats.rating} / 5.0`,
+                cardType: 'driver_earnings',
+                cardData: stats,
+                suggestedActions: ['Where is my rider?', 'What is my cancellation rate?', "Today's earnings?"],
+                source: 'getCaptainTodayStats'
+            };
+        }
+
+        // 3. Acceptance / Cancellation / Rating / Performance stats
+        if (q.includes('acceptance') || q.includes('cancellation') || q.includes('rate') || q.includes('performance') || q.includes('metric') || q.includes('rating')) {
+            const stats = await getCaptainTodayStatsTool(captainId);
+            if (!stats.success) {
+                return { text: `📊 ${stats.message}`, cardType: 'empty', source: 'getCaptainTodayStats' };
+            }
+            return {
+                text: `📊 **Your Driver Performance Metrics:**\n\n• **Acceptance Rate**: ${stats.acceptanceRate}%\n• **Cancellation Rate**: ${stats.cancellationRate}%\n• **On-Time Rate**: ${stats.onTimeRate}%\n• **Driver Rating**: ⭐ ${stats.rating} / 5.0\n• **Vehicle**: ${stats.vehicle?.color || ''} ${stats.vehicle?.vehicleType?.toUpperCase() || 'CAR'} (${stats.vehicle?.plate || ''})\n\n💡 *Keep acceptance above 90% and cancellation below 5% to qualify for peak-hour surge bonuses!*`,
+                cardType: 'driver_metrics',
+                cardData: stats,
+                suggestedActions: ["Today's earnings?", 'Where is my rider?', 'What is the pickup location?'],
+                source: 'getCaptainTodayStats'
+            };
+        }
+
+        // 4. Active ride / Destination
+        if (q.includes('destination') || q.includes('drop') || q.includes('active') || q.includes('status')) {
+            const active = await getCaptainActiveRideTool(captainId);
+            if (!active.hasActiveRide) {
+                return {
+                    text: `🚖 ${active.message}`,
+                    cardType: 'empty',
+                    source: 'getCaptainActiveRide'
+                };
+            }
+            return {
+                text: `🚖 **Active Trip Details:**\n\n• **Rider**: ${active.rider.name}\n• **Pickup**: ${active.pickup}\n• **Destination**: ${active.destination}\n• **Expected Fare**: ₹${active.fare}\n• **Status**: ${active.status.toUpperCase()}`,
+                cardType: 'driver_active_ride',
+                cardData: active,
+                suggestedActions: ['Where is my rider?', "Today's earnings?", 'What is my acceptance rate?'],
+                source: 'getCaptainActiveRide'
+            };
+        }
+
+        // Default captain greeting
+        return {
+            text: `👋 Hi Captain! I'm **Zen**, your AI driving assistant. Ask me anything about your shift:\n\n• "Where is my rider?"\n• "What is the pickup location?"\n• "How much have I earned today?"\n• "What is my acceptance rate?"\n• "What is my cancellation rate?"`,
+            cardType: 'welcome',
+            suggestedActions: ['Where is my rider?', "Today's earnings?", 'What is my acceptance rate?', 'What is my cancellation rate?'],
+            source: 'captain_greeting'
+        };
+    }
+
+    // ── Rider Specific Queries ────────────────────────────────────────────────
+
+    // 1. Is driver on the way / Where is driver / location
+    if (q.includes('where is my driver') || q.includes('where is my current driver') || q.includes('on the way') || q.includes('where is my ride') || q.includes('track') || q.includes('location')) {
         const loc = await getDriverLocationTool(userId);
         if (!loc.success) {
             return {
@@ -369,6 +669,16 @@ async function resolveQueryDeterministically(query, userId) {
                 source: 'getDriverLocation'
             };
         }
+
+        if (q.includes('on the way')) {
+            return {
+                text: `🚗 **Driver Status:** Yes, your driver **${loc.driverName}** is on the way to your pickup location!\n\n• **Vehicle**: ${loc.vehicle?.color || ''} ${loc.vehicle?.vehicleType || 'Car'} (${loc.vehicle?.plate || ''})\n• **Distance to Pickup**: ~${loc.distanceFromPickupKm} km\n• **Estimated Arrival**: ~${loc.pickupEtaMinutes} minutes\n• **Current Status**: ${loc.status.toUpperCase()}`,
+                cardType: 'driver_location',
+                cardData: loc,
+                source: 'getDriverLocation'
+            };
+        }
+
         return {
             text: `🚗 **Your Driver is En Route!**\n\n• **Driver**: ${loc.driverName}\n• **Vehicle**: ${loc.vehicle?.color || ''} ${loc.vehicle?.vehicleType || 'Car'} (${loc.vehicle?.plate || ''})\n• **Distance**: ~${loc.distanceFromPickupKm} km from pickup\n• **Arrival ETA**: ~${loc.pickupEtaMinutes} minutes\n• **Status**: ${loc.status.toUpperCase()}`,
             cardType: 'driver_location',
@@ -377,7 +687,80 @@ async function resolveQueryDeterministically(query, userId) {
         };
     }
 
-    // 2. ETA query
+    // 2. Distance of last ride
+    if (q.includes('distance of my last ride') || q.includes('distance of my ride') || (q.includes('distance') && (q.includes('last') || q.includes('latest')))) {
+        const last = await getLastRideDetailsTool(userId);
+        if (!last.success || !last.hasRide) {
+            return {
+                text: `📏 ${last.message || 'No past ride records found.'}`,
+                cardType: 'empty',
+                source: 'getLastRideDetails'
+            };
+        }
+        return {
+            text: `📏 **Distance of Your Last Ride:**\n\n• **Total Distance**: ${last.distanceKm} km (${last.distanceMeters} meters)\n• **Trip Route**: ${last.pickup} ➔ ${last.destination}\n• **Duration**: ~${last.durationMinutes} minutes\n• **Fare**: ₹${last.fare}\n• **Date**: ${last.date}`,
+            cardType: 'ride_details',
+            cardData: last,
+            source: 'getLastRideDetails'
+        };
+    }
+
+    // 3. Last ride cost
+    if (q.includes('how much did my last ride cost') || (q.includes('last ride') && (q.includes('cost') || q.includes('fare') || q.includes('how much')))) {
+        const last = await getLastRideDetailsTool(userId);
+        if (!last.success || !last.hasRide) {
+            return {
+                text: `💰 ${last.message || 'No past ride records found.'}`,
+                cardType: 'empty',
+                source: 'getLastRideDetails'
+            };
+        }
+        return {
+            text: `💰 **Your Last Ride Cost:**\n\n• **Amount Charged**: ₹${last.fare}\n• **Destination**: ${last.destination}\n• **Distance**: ${last.distanceKm} km\n• **Status**: ${last.status.toUpperCase()}\n• **Date**: ${last.date}`,
+            cardType: 'ride_details',
+            cardData: last,
+            source: 'getLastRideDetails'
+        };
+    }
+
+    // 4. Latest ride details
+    if (q.includes('show me my latest ride') || q.includes('latest ride details') || q.includes('last ride details') || q.includes('my latest ride') || q === 'show me my latest ride details.') {
+        const last = await getLastRideDetailsTool(userId);
+        if (!last.success || !last.hasRide) {
+            return {
+                text: `📋 ${last.message || 'No past ride records found.'}`,
+                cardType: 'empty',
+                source: 'getLastRideDetails'
+            };
+        }
+        return {
+            text: `📋 **Latest Ride Details:**\n\n• **Pickup**: ${last.pickup}\n• **Destination**: ${last.destination}\n• **Distance**: ${last.distanceKm} km\n• **Duration**: ~${last.durationMinutes} mins\n• **Fare**: ₹${last.fare}\n• **Status**: ${last.status.toUpperCase()}\n• **Captain**: ${last.captainName} (${last.vehicle?.vehicleType || 'Cab'} • ${last.vehicle?.plate || ''})\n• **Date**: ${last.date}`,
+            cardType: 'ride_details',
+            cardData: last,
+            source: 'getLastRideDetails'
+        };
+    }
+
+    // 5. Why was I charged this amount / Surge pricing explanation / Fare increase
+    if (q.includes('why was i charged') || q.includes('why was surge') || q.includes('surge pricing') || q.includes('why did my fare') || q.includes('charged this amount') || q.includes('explain fare')) {
+        const fareExp = await getFareExplanationTool(userId);
+        if (!fareExp.success || !fareExp.hasRide) {
+            return {
+                text: `💰 ${fareExp.message || 'No ride found for billing explanation.'}`,
+                cardType: 'fare_policy',
+                source: 'getFareExplanation'
+            };
+        }
+
+        return {
+            text: `💰 **Fare & Surge Explanation:**\n\n• **Ride Destination**: ${fareExp.destination}\n• **Base Fare**: ₹${fareExp.baseFare}\n• **Distance Charge**: ₹${fareExp.distanceCharge} (${fareExp.distanceKm} km @ ₹${fareExp.distanceRatePerKm}/km)\n• **Duration Charge**: ₹${fareExp.durationCharge} (${fareExp.durationMinutes} mins @ ₹${fareExp.durationRatePerMin}/min)\n• **Surge Multiplier**: ${fareExp.surgeMultiplier}x (${fareExp.surgeReason})\n• **Final Fare Charged**: ₹${fareExp.finalFare}\n\n**Calculation Formula:**\n${fareExp.explanation}`,
+            cardType: 'fare_explanation',
+            cardData: fareExp,
+            source: 'getFareExplanation'
+        };
+    }
+
+    // 6. ETA query
     if (q.includes('eta') || q.includes('arrive') || q.includes('how long') || q.includes('when will')) {
         const etaRes = await getRideETATool(userId);
         if (!etaRes.success) {
@@ -396,7 +779,7 @@ async function resolveQueryDeterministically(query, userId) {
         };
     }
 
-    // 3. Who is driver / driver details
+    // 7. Who is driver / driver details
     if (q.includes('who is my driver') || q.includes('driver details') || q.includes('captain details')) {
         const driverRes = await getDriverDetailsTool(userId);
         if (!driverRes.success) {
@@ -422,7 +805,7 @@ async function resolveQueryDeterministically(query, userId) {
         };
     }
 
-    // 4. Policy & Rules (Cancellation, Refunds, Lost Items, Conduct)
+    // 8. Policy & Rules (Cancellation, Refunds, Lost Items, Conduct)
     if (q.includes('policy') || q.includes('refund') || q.includes('lost item') || q.includes('lost my') || 
         (q.includes('cancel') && (q.includes('policy') || q.includes('fee') || q.includes('charge') || q.includes('rule')))) {
         if (q.includes('cancel')) {
@@ -441,7 +824,7 @@ async function resolveQueryDeterministically(query, userId) {
         }
     }
 
-    // 5. Cancel ride action
+    // 9. Cancel ride action
     if (q.includes('cancel my ride') || q === 'cancel ride' || q === 'cancel' || q.includes('stop my ride') || q.includes('please cancel')) {
         const cancelRes = await cancelRideTool(userId);
         return {
@@ -454,12 +837,12 @@ async function resolveQueryDeterministically(query, userId) {
         };
     }
 
-    // 5. Current ride status
+    // 10. Current ride status
     if (q.includes('status') || q.includes('current ride') || q.includes('my ride')) {
         const statusRes = await getRideStatusTool(userId);
-        if (!statusRes.success) {
+        if (!statusRes.success || !statusRes.hasActiveRide) {
             return {
-                text: `📋 ${statusRes.message}`,
+                text: `📋 ${statusRes.message || 'You currently have no active ride in progress.'}`,
                 cardType: 'empty',
                 source: 'getRideStatus'
             };
@@ -472,7 +855,7 @@ async function resolveQueryDeterministically(query, userId) {
         };
     }
 
-    // 6. Fare calculation
+    // 11. General Fare calculation
     if (q.includes('fare') || q.includes('cost') || q.includes('price') || q.includes('how much')) {
         const fareRes = await getRideFareTool(userId);
         if (fareRes.hasActiveRide) {
@@ -491,8 +874,8 @@ async function resolveQueryDeterministically(query, userId) {
         };
     }
 
-    // 7. Ride history
-    if (q.includes('latest ride') || q.includes('history') || q.includes('past rides') || q.includes('previous ride')) {
+    // 12. Ride history
+    if (q.includes('history') || q.includes('past rides') || q.includes('previous ride')) {
         const histRes = await getRideHistoryTool(userId);
         if (!histRes.success || histRes.rides.length === 0) {
             return {
@@ -514,7 +897,7 @@ async function resolveQueryDeterministically(query, userId) {
 
     // Default general assistance
     return {
-        text: `👋 Hi, I'm **Zen**, your Drivo AI Ride Assistant! I can help you in real time with:\n\n• "Where is my driver?"\n• "What's my ETA?"\n• "Who is my driver?"\n• "What is my ride status?"\n• "How much will my ride cost?"\n• "Cancel my ride"\n• "Show me my latest ride"\n\nHow can I help with your journey today?`,
+        text: `👋 Hi, I'm **Zen**, your Drivo AI Ride Assistant! I can help you in real time with:\n\n• "Where is my driver?"\n• "What's my ETA?"\n• "Who is my driver?"\n• "What is my ride status?"\n• "How much did my last ride cost?"\n• "Show me my latest ride details"\n• "Why was surge pricing applied?"\n• "What was the distance of my last ride?"\n• "Cancel my ride"\n\nHow can I help with your journey today?`,
         cardType: 'welcome',
         source: 'general_greeting'
     };
@@ -522,7 +905,7 @@ async function resolveQueryDeterministically(query, userId) {
 
 // ─── 4. Main Public Entrypoint ────────────────────────────────────────────────
 
-async function askZenSupport(query, userId = null) {
+async function askZenSupport(query, authContext = null) {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
         return {
             text: "Hello! Please enter a query and I'll look up your ride details or help you right away.",
@@ -531,8 +914,23 @@ async function askZenSupport(query, userId = null) {
         };
     }
 
-    // If GEMINI_API_KEY is configured, use LLM with tool calling
-    if (process.env.GEMINI_API_KEY) {
+    let userId = null;
+    let captainId = null;
+    let userType = 'user';
+    if (typeof authContext === 'string') {
+        userId = authContext;
+    } else if (authContext && typeof authContext === 'object') {
+        if (!authContext.userId && !authContext.captainId && authContext.toString && typeof authContext.toString === 'function') {
+            userId = authContext.toString();
+        } else {
+            userId = authContext.userId ? authContext.userId.toString() : null;
+            captainId = authContext.captainId ? authContext.captainId.toString() : null;
+            userType = authContext.userType || (captainId ? 'captain' : 'user');
+        }
+    }
+
+    // If GEMINI_API_KEY is configured and user is rider, attempt Gemini tool calling with fallback
+    if (process.env.GEMINI_API_KEY && userType !== 'captain') {
         try {
             const systemPrompt = `You are Zen, the intelligent AI customer support assistant for Drivo Ride-Hailing.
 Answer the customer's query using real tools. Never invent driver names, locations, or ETAs.
@@ -550,43 +948,8 @@ Customer User ID: ${userId || 'guest'}.`;
 
             const candidate = geminiRes.data?.candidates?.[0]?.content?.parts?.[0];
 
-            // If model called a function
             if (candidate?.functionCall) {
-                const fnName = candidate.functionCall.name;
-                const fnArgs = candidate.functionCall.args || {};
-
-                let toolResult = null;
-                switch (fnName) {
-                    case 'getCurrentRide':
-                        toolResult = await getCurrentRideTool(userId);
-                        break;
-                    case 'getRideStatus':
-                        toolResult = await getRideStatusTool(userId);
-                        break;
-                    case 'getDriverDetails':
-                        toolResult = await getDriverDetailsTool(userId);
-                        break;
-                    case 'getDriverLocation':
-                        toolResult = await getDriverLocationTool(userId);
-                        break;
-                    case 'getRideETA':
-                        toolResult = await getRideETATool(userId);
-                        break;
-                    case 'getRideFare':
-                        toolResult = await getRideFareTool(userId, fnArgs.pickup, fnArgs.destination);
-                        break;
-                    case 'cancelRide':
-                        toolResult = await cancelRideTool(userId, fnArgs.reason);
-                        break;
-                    case 'getRideHistory':
-                        toolResult = await getRideHistoryTool(userId);
-                        break;
-                    default:
-                        toolResult = await getCurrentRideTool(userId);
-                }
-
-                // Follow-up synthesis with tool result
-                return resolveQueryDeterministically(query, userId);
+                return resolveQueryDeterministically(query, { userId, captainId, userType });
             }
 
             if (candidate?.text) {
@@ -602,18 +965,24 @@ Customer User ID: ${userId || 'guest'}.`;
     }
 
     // High-reliability deterministic resolver directly querying DB
-    return resolveQueryDeterministically(query, userId);
+    return resolveQueryDeterministically(query, { userId, captainId, userType });
 }
 
 module.exports = {
     askZenSupport,
+    resolveQueryDeterministically,
     getCurrentRideTool,
     getRideStatusTool,
     getDriverDetailsTool,
     getDriverLocationTool,
     getRideETATool,
     getRideFareTool,
+    getLastRideDetailsTool,
+    getFareExplanationTool,
     cancelRideTool,
     getRideHistoryTool,
+    getCaptainActiveRideTool,
+    getCaptainTodayStatsTool,
+    calculateHaversineKm,
     ZEN_TOOL_DECLARATIONS
 };

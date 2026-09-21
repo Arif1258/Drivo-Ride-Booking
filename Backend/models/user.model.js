@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema({
     socketId: {
         type: String,
     },
+    role: {
+        type: String,
+        enum: [ 'user', 'admin' ],
+        default: 'user',
+    },
 })
 
 userSchema.methods.generateAuthToken = function () {

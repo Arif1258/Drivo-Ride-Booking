@@ -57,6 +57,19 @@ const LookingForDriver = (props) => {
                         </div>
                     </div>
                 </div>
+
+                <button
+                    onClick={() => {
+                        if (props.cancelRide) {
+                            props.cancelRide();
+                        } else {
+                            props.setVehicleFound(false);
+                        }
+                    }}
+                    className='w-full mt-4 py-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 transition-all text-sm'
+                >
+                    Cancel Ride Request
+                </button>
             </div>
         </div>
     );

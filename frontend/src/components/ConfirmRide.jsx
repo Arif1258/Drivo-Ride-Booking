@@ -37,10 +37,24 @@ const ConfirmRide = (props) => {
                         <div className='h-8 w-8 bg-yellow-550/10 text-yellow-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5'>
                             <Coins className='h-4 w-4' />
                         </div>
-                        <div>
+                        <div className='flex-1'>
                             <h3 className='text-xs font-semibold text-gray-400 uppercase tracking-wider'>Fares & Method</h3>
-                            <p className='text-base font-extrabold text-slate-900 mt-0.5'>₹{props.fare[props.vehicleType]}</p>
-                            <p className='text-[10px] text-gray-500 font-semibold'>Direct Cash / Wallet billing options</p>
+                            <div className='flex items-baseline justify-between'>
+                                <p className='text-base font-extrabold text-slate-900 mt-0.5'>₹{props.fare[props.vehicleType]}</p>
+                                <span className='text-[10px] text-indigo-700 bg-indigo-50 font-bold px-2 py-0.5 rounded-full border border-indigo-100'>Transparent Math</span>
+                            </div>
+                            <p className='text-[10px] text-gray-500 font-semibold'>Base Fare + Distance + Trip Time</p>
+                        </div>
+                    </div>
+
+                    {/* Transparent Smart Match Assurance */}
+                    <div className='bg-indigo-50/70 border border-indigo-100/80 rounded-xl p-3 text-xs text-indigo-950 flex items-start gap-2.5'>
+                        <span className='text-base shrink-0'>🎯</span>
+                        <div className='space-y-0.5'>
+                            <div className='font-bold text-indigo-900'>Smart AI Dispatch Engine Active</div>
+                            <p className='text-[11px] text-indigo-800/80 leading-snug'>
+                                Matching top candidate driver by Proximity (40%), ETA (25%), Driver Rating (20%), and Reliability (15%).
+                            </p>
                         </div>
                     </div>
                 </div>

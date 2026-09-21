@@ -15,9 +15,11 @@ const aiRoutes = require('./routes/ai.routes');
 const demandRoutes = require('./routes/demand.routes');
 const { seedHistoricalRidesIfEmpty } = require('./services/demandPredictionService');
 
+const mongoose = require('mongoose');
+
 connectToDb().then(() => {
     seedHistoricalRidesIfEmpty();
-});
+}).catch(() => {});
 
 app.use(compression());
 app.use(cors({
@@ -28,7 +30,23 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-
+// Fail-fast DB connection middleware (prevents infinite buffering/loading in production)
+app.use(async (req, res, next) => {
+    if (req.path === '/' || req.method === 'OPTIONS' || process.env.NODE_ENV === 'test') return next();
+    if (mongoose.connection.readyState !== 1) {
+        try {
+            await connectToDb();
+        } catch (e) {
+            console.error('Middleware connect error:', e.message);
+        }
+    }
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({
+            message: 'Database connection offline. In MongoDB Atlas, please add 0.0.0.0/0 to Network Access.'
+        });
+    }
+    next();
+});
 
 app.get('/', (req, res) => {
     res.send('Hello World');

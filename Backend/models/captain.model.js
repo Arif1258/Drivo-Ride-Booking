@@ -101,6 +101,9 @@ const captainSchema = new mongoose.Schema({
     totalEarnings: {
         type: Number,
         default: 0
+    },
+    lastLocationUpdate: {
+        type: Date
     }
 }, { timestamps: true });
 
