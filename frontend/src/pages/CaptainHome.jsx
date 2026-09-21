@@ -47,6 +47,10 @@ const CaptainHome = () => {
     };
 
     const handleRepositionNavigate = async (zone) => {
+        if (!zone?.center?.ltd || !zone?.center?.lng) {
+            alert('Location details unavailable for this zone.');
+            return;
+        }
         try {
             const loc = {
                 ltd: zone.center.ltd,
@@ -61,7 +65,7 @@ const CaptainHome = () => {
             }, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('captain-token')}` }
             });
-            alert(`🧭 Navigation activated toward ${zone.area}! Location updated.`);
+            alert(`🧭 Navigation activated toward ${zone.name || zone.area || 'selected zone'}! Location updated.`);
             setDismissReposition(true);
         } catch (err) {
             console.error("Reposition error:", err.message);
@@ -76,25 +80,35 @@ const CaptainHome = () => {
         });
         const updateLocation = () => {
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(async position => {
-                    const loc = {
-                        ltd: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
-                    socket.emit('update-location-captain', {
-                        userId: captain._id,
-                        location: loc
-                    });
-                    try {
-                        await axios.post(`${import.meta.env.VITE_BASE_URL}/captains/update-location`, {
+                navigator.geolocation.getCurrentPosition(
+                    async position => {
+                        const loc = {
+                            ltd: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        socket.emit('update-location-captain', {
+                            userId: captain._id,
                             location: loc
-                        }, {
-                            headers: { Authorization: `Bearer ${localStorage.getItem('captain-token')}` }
                         });
-                    } catch (err) {
-                        console.log("REST location update error:", err.message);
-                    }
-                });
+                        try {
+                            await axios.post(`${import.meta.env.VITE_BASE_URL}/captains/update-location`, {
+                                location: loc
+                            }, {
+                                headers: { Authorization: `Bearer ${localStorage.getItem('captain-token')}` }
+                            });
+                        } catch (err) {
+                            console.log("REST location update error:", err.message);
+                        }
+                    },
+                    error => {
+                        if (error.code === error.PERMISSION_DENIED) {
+                            console.warn("Location permission denied by captain.");
+                        } else {
+                            console.debug("Temporary location acquisition:", error.message);
+                        }
+                    },
+                    { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+                );
             }
         };
 
@@ -328,7 +342,7 @@ const CaptainHome = () => {
                 <LiveTracking ride={ride} hotspots={demandHotspots} />
 
                 {/* AI Smart Repositioning Floating Card */}
-                {repositionAdvice && !dismissReposition && (
+                {repositionAdvice?.recommendedZone && !dismissReposition && (
                     <div className='absolute bottom-3 left-4 right-4 z-20 pointer-events-auto'>
                         <div className='bg-slate-900/95 backdrop-blur-md border border-amber-500/30 p-3 sm:p-3.5 rounded-2xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3'>
                             <div className='flex items-center gap-3'>
@@ -341,11 +355,11 @@ const CaptainHome = () => {
                                             AI Repositioning
                                         </span>
                                         <span className='text-[11px] text-emerald-400 font-bold'>
-                                            +{repositionAdvice.recommendedZone.probabilityBoostPercent}% Ride Probability
+                                            +{repositionAdvice.recommendedZone.probabilityBoostPercent || 25}% Ride Probability
                                         </span>
                                     </div>
                                     <p className='text-xs font-semibold text-slate-200 mt-1 line-clamp-1'>
-                                        {repositionAdvice.message}
+                                        {repositionAdvice.message || 'High demand zone nearby.'}
                                     </p>
                                 </div>
                             </div>

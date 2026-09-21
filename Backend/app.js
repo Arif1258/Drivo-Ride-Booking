@@ -48,22 +48,44 @@ app.use(async (req, res, next) => {
     next();
 });
 
+const http = require('http');
+const { initializeSocket, getIO } = require('./socket');
+const server = http.createServer(app);
+initializeSocket(server);
+
+// Delegate socket.io HTTP polling/handshake requests to socket.io engine
+app.use((req, res, next) => {
+    if (req.url.startsWith('/socket.io')) {
+        const io = getIO();
+        if (io && io.engine) {
+            return io.engine.handleRequest(req, res);
+        }
+    }
+    next();
+});
+
 app.get('/', (req, res) => {
     res.send('Hello World');
 });
 
+// Primary & API Prefixed Routes
 app.use('/users', userRoutes);
+app.use('/api/users', userRoutes);
 app.use('/captains', captainRoutes);
+app.use('/api/captains', captainRoutes);
 app.use('/maps', mapsRoutes);
+app.use('/api/maps', mapsRoutes);
 app.use('/rides', rideRoutes);
+app.use('/api/rides', rideRoutes);
 app.use('/payments', paymentRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api', paymentRoutes);
+app.use('/', paymentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/ai', aiRoutes);
 app.use('/api/demand', demandRoutes);
 app.use('/demand', demandRoutes);
 
-
-
-
 module.exports = app;
+
 

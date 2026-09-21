@@ -9,6 +9,9 @@ const { haversineKm } = etaService;
 let io;
 
 function initializeSocket(server) {
+    if (io) {
+        return io;
+    }
     io = socketIo(server, {
         cors: {
             origin: '*',
@@ -220,8 +223,11 @@ const sendRepositioningRecommendation = (captainId, recommendation) => {
     });
 };
 
+const getIO = () => io;
+
 module.exports = {
     initializeSocket,
+    getIO,
     sendMessageToSocketId,
     sendMessageToUser,
     broadcastToAdmin,

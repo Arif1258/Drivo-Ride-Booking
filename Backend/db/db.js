@@ -8,9 +8,15 @@ async function connectToDb() {
         return mongoose.connection;
     }
 
-    if (connectionPromise) {
-        return connectionPromise;
+    if (mongoose.connection.readyState === 2 && connectionPromise) {
+        try {
+            return await connectionPromise;
+        } catch (e) {
+            connectionPromise = null;
+        }
     }
+
+    connectionPromise = null;
 
     const primaryUri = process.env.DB_CONNECT;
     const fallbackUri = process.env.LOCAL_DB_CONNECT || 'mongodb://127.0.0.1:27017/drivo';

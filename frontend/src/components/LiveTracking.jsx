@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import Map, { Marker, Source, Layer } from 'react-map-gl';
+import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import axios from 'axios';
 import { SocketContext } from '../context/SocketContext';
+
+// Disable Mapbox telemetry pings to eliminate ad-blocker ERR_BLOCKED_BY_CLIENT console errors
+try {
+    if (mapboxgl && mapboxgl.config) {
+        mapboxgl.config.EVENTS_URL = null;
+    }
+} catch (e) {
+    // Non-critical telemetry configuration
+}
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -20,41 +30,57 @@ const LiveTracking = ({ pickup, destination, ride, hotspots = [] }) => {
     const [pickupCoords, setPickupCoords] = useState(null);
     const [destCoords, setDestCoords] = useState(null);
     const [routeGeoJson, setRouteGeoJson] = useState(null);
-    const intervalRef = useRef(null);
 
     const targetPickup = pickup || ride?.pickup;
     const targetDestination = destination || ride?.destination;
 
     // Get current passenger position (fallback / user marker)
     const updatePosition = () => {
-        navigator.geolocation.getCurrentPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            setCurrentPosition({ latitude, longitude });
-            
-            if (!pickupCoords && !destCoords && !driverPosition) {
-                setViewState(prev => ({ ...prev, latitude, longitude, zoom: 14 }));
-            }
-        }, (error) => {
-            console.warn("Geolocation warning:", error);
-        });
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setCurrentPosition({ latitude, longitude });
+
+                if (!pickupCoords && !destCoords && !driverPosition) {
+                    setViewState(prev => ({ ...prev, latitude, longitude, zoom: 14 }));
+                }
+            },
+            (error) => {
+                if (error.code === error.PERMISSION_DENIED) {
+                    console.warn("Location access denied by user. Defaulting map location.");
+                } else {
+                    console.debug("Geolocation notice:", error.message);
+                }
+            },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+        );
     };
 
     useEffect(() => {
         updatePosition();
 
-        const watchId = navigator.geolocation.watchPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            setCurrentPosition({ latitude, longitude });
-            if (!pickupCoords && !destCoords && !driverPosition) {
-                setViewState(prev => ({ ...prev, latitude, longitude }));
-            }
-        });
-
-        intervalRef.current = setInterval(updatePosition, 10000);
+        let watchId = null;
+        if (navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setCurrentPosition({ latitude, longitude });
+                    if (!pickupCoords && !destCoords && !driverPosition) {
+                        setViewState(prev => ({ ...prev, latitude, longitude }));
+                    }
+                },
+                (error) => {
+                    console.debug("Location watch notice:", error.message);
+                },
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+            );
+        }
 
         return () => {
-            navigator.geolocation.clearWatch(watchId);
-            clearInterval(intervalRef.current);
+            if (watchId !== null && navigator.geolocation) {
+                navigator.geolocation.clearWatch(watchId);
+            }
         };
     }, [pickupCoords, destCoords, driverPosition]);
 
