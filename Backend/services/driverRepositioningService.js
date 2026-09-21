@@ -63,6 +63,7 @@ async function getDriverRepositioningAdvice(driverLocation = null, options = {})
         driverLocation: { ltd: dLat, lng: dLng },
         hasRecommendation: !isAlreadyInZone,
         isAlreadyInOptimalZone: isAlreadyInZone,
+        distanceKm: topZone.distanceKm,
         message: recommendationMessage,
         recommendedZone: {
             id: topZone.zoneId,
@@ -84,7 +85,31 @@ async function getDriverRepositioningAdvice(driverLocation = null, options = {})
     };
 }
 
+async function getRepositionAdviceForCaptain(captainId, options = {}) {
+    let driverLoc = null;
+    if (captainId) {
+        try {
+            const captainModel = require('../models/captain.model');
+            const captain = await captainModel.findById(captainId);
+            if (captain?.location?.coordinates && captain.location.coordinates.length === 2) {
+                driverLoc = {
+                    lng: captain.location.coordinates[0],
+                    ltd: captain.location.coordinates[1]
+                };
+            }
+        } catch (err) {
+            console.warn('Could not fetch captain location for repositioning:', err.message);
+        }
+    }
+    const advice = await getDriverRepositioningAdvice(driverLoc, options);
+    return {
+        ...advice,
+        shouldReposition: advice.hasRecommendation
+    };
+}
+
 module.exports = {
     getDriverRepositioningAdvice,
-    getRepositioningAdvice: getDriverRepositioningAdvice
+    getRepositioningAdvice: getDriverRepositioningAdvice,
+    getRepositionAdviceForCaptain
 };

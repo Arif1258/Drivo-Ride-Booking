@@ -108,7 +108,9 @@ function scoreCandidateDriver(captain, pickupCoords, rideRequirements = {}, weig
 
     return {
         driverId: captain._id,
+        captainId: captain._id,
         driverName: `${captain.fullname?.firstname || 'Captain'} ${captain.fullname?.lastname || ''}`.trim(),
+        captainName: `${captain.fullname?.firstname || 'Captain'} ${captain.fullname?.lastname || ''}`.trim(),
         vehicle: captain.vehicle,
         distanceKm,
         pickupEtaMinutes,

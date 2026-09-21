@@ -40,7 +40,7 @@ async function evaluateRideRisk(rideData, context = {}) {
     if (distanceKm > 1 && durationHours > 0) {
         const speedKmH = distanceKm / durationHours;
         if (speedKmH > THRESHOLDS.MAX_REASONABLE_SPEED_KMH) {
-            const addedRisk = Math.min(45, Math.round((speedKmH - 120) * 0.5));
+            const addedRisk = Math.min(60, Math.max(50, Math.round((speedKmH - 120) * 0.5)));
             riskScore += addedRisk;
             reasons.push({
                 code: 'GPS_SPOOF_HIGH_SPEED',
@@ -50,8 +50,8 @@ async function evaluateRideRisk(rideData, context = {}) {
         }
     }
 
-    // 2. Instant Completion Check (multi-km ride ended in under a minute)
-    if (distanceKm > 2 && durationSeconds < 60 && durationSeconds > 0) {
+    // 2. Instant Completion Check (multi-km ride ended in a minute or less)
+    if (distanceKm > 2 && durationSeconds <= 60 && durationSeconds > 0) {
         riskScore += 40;
         reasons.push({
             code: 'INSTANT_COMPLETION',

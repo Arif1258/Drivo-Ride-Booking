@@ -22,7 +22,11 @@ const paymentModel = require('../models/payment.model');
 const { calculateRideETA, predictPreBookingETA } = require('./etaService');
 const { sendMessageToUser, broadcastToAdmin } = require('../socket');
 
-const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+const isValidObjectId = (id) => {
+    if (!id) return false;
+    const str = (typeof id === 'object' && typeof id.toString === 'function') ? id.toString() : String(id);
+    return /^[0-9a-fA-F]{24}$/.test(str);
+};
 
 // ─── 1. Core Tools (Database Scoped) ──────────────────────────────────────────
 

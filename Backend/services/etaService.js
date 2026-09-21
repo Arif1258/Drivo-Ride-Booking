@@ -285,7 +285,8 @@ async function predictPreBookingETA({
         factors: {
             compositeTrafficFactor: trafficFactor,
             timeOfDayMultiplier: baseHourFactor,
-            zoneCongestionMultiplier: detectZoneCongestionMultiplier(pickup, destination)
+            zoneCongestionMultiplier: detectZoneCongestionMultiplier(pickup, destination),
+            trafficDelayMinutes
         },
         readable: `${Math.max(1, totalMinutes - 3)}-${totalMinutes + 3} mins`
     };

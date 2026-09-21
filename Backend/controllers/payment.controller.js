@@ -123,6 +123,8 @@ module.exports.getStats = async (req, res) => {
 
         return res.status(200).json({
             totalRevenue,
+            totalAmount: totalRevenue,
+            totalPayments: successfulCount,
             successfulCount,
             failedCount,
             activeRides,

@@ -242,14 +242,16 @@ module.exports.getAdminAIDashboard = async (req, res) => {
             activeRidesCount,
             totalCaptains,
             activeCaptainsCount,
-            recentRides
+            recentRides,
+            totalRidesCount
         ] = await Promise.all([
             demandPredictionService.predictAllZones(),
             anomalyDetectionService.getFlaggedRidesForAdmin({ limit: 10 }),
             rideModel.countDocuments({ status: { $in: ['accepted', 'ongoing', 'payment-pending'] } }),
             captainModel.countDocuments(),
             captainModel.countDocuments({ status: 'active' }),
-            rideModel.find().sort({ createdAt: -1 }).limit(10).populate('user').populate('captain')
+            rideModel.find().sort({ createdAt: -1 }).limit(10).populate('user').populate('captain'),
+            rideModel.countDocuments()
         ]);
 
         // Demand-Supply Overview
@@ -289,6 +291,7 @@ module.exports.getAdminAIDashboard = async (req, res) => {
 
         return res.status(200).json({
             summary: {
+                totalRides: totalRidesCount,
                 activeRides: activeRidesCount,
                 totalCaptains,
                 activeCaptains: activeCaptainsCount,
