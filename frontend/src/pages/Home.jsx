@@ -22,7 +22,6 @@ const Home = () => {
     const [supportOpen, setSupportOpen] = useState(false);
     const [aiEtaInfo, setAiEtaInfo] = useState(null);
     const vehiclePanelRef = useRef(null);
-    const confirmRidePanelRef = useRef(null);
     const vehicleFoundRef = useRef(null);
     const waitingForDriverRef = useRef(null);
     const panelRef = useRef(null);
@@ -224,13 +223,6 @@ const Home = () => {
         }
     }, [vehiclePanel]);
 
-    useGSAP(function () {
-        if (confirmRidePanel) {
-            gsap.to(confirmRidePanelRef.current, { transform: 'translateY(0)' });
-        } else {
-            gsap.to(confirmRidePanelRef.current, { transform: 'translateY(100%)' });
-        }
-    }, [confirmRidePanel]);
 
     useGSAP(function () {
         if (vehicleFound) {
@@ -489,7 +481,8 @@ const Home = () => {
                 />
             </div>
 
-            <div ref={confirmRidePanelRef} className='fixed w-full z-30 bottom-0 translate-y-full bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
+            {/* Responsive Confirm Ride Modal */}
+            {confirmRidePanel && (
                 <ConfirmRide
                     createRide={createRide}
                     pickup={pickup}
@@ -499,7 +492,7 @@ const Home = () => {
                     setConfirmRidePanel={setConfirmRidePanel} 
                     setVehicleFound={setVehicleFound} 
                 />
-            </div>
+            )}
 
             <div ref={vehicleFoundRef} className='fixed w-full z-30 bottom-0 translate-y-full bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
                 <LookingForDriver
