@@ -7,16 +7,18 @@ import UserContext from './context/UserContext.jsx';
 import CaptainContext from './context/CapatainContext.jsx';
 import SocketProvider from './context/SocketContext.jsx';
 
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
 createRoot(document.getElementById('root')).render(
-
-  <CaptainContext>
-    <UserContext>
-      <SocketProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <App />
-        </BrowserRouter>
-      </SocketProvider>
-    </UserContext>
-  </CaptainContext>
-
+  <ErrorBoundary>
+    <CaptainContext>
+      <UserContext>
+        <SocketProvider>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <App />
+          </BrowserRouter>
+        </SocketProvider>
+      </UserContext>
+    </CaptainContext>
+  </ErrorBoundary>
 )

@@ -355,7 +355,7 @@ const CaptainHome = () => {
                                             AI Repositioning
                                         </span>
                                         <span className='text-[11px] text-emerald-400 font-bold'>
-                                            +{repositionAdvice.recommendedZone.probabilityBoostPercent || 25}% Ride Probability
+                                            +{repositionAdvice?.recommendedZone?.probabilityBoostPercent || 25}% Ride Probability
                                         </span>
                                     </div>
                                     <p className='text-xs font-semibold text-slate-200 mt-1 line-clamp-1'>

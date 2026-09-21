@@ -88,39 +88,64 @@ const Home = () => {
 
     useEffect(() => {
         let intervalId;
+        let isMounted = true;
 
-        const pollActiveRide = async () => {
+        const checkActiveRide = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
             try {
                 const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/rides/active-ride`, {
-                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                    headers: { Authorization: `Bearer ${token}` }
                 });
-                if (response.data) {
-                    const activeRide = response.data;
-                    console.log("Polling active ride:", activeRide.status);
+                if (!isMounted) return;
 
-                    if (activeRide.status === 'accepted') {
+                if (response.data && response.data._id) {
+                    const activeRide = response.data;
+                    console.log("Active ride sync:", activeRide.status, activeRide._id);
+                    setRide(activeRide);
+
+                    if (activeRide.pickup) setPickup(activeRide.pickup);
+                    if (activeRide.destination) setDestination(activeRide.destination);
+                    if (activeRide.vehicleType) setVehicleType(activeRide.vehicleType);
+
+                    if (activeRide.status === 'pending') {
+                        setVehiclePanel(false);
+                        setConfirmRidePanel(false);
+                        setVehicleFound(true);
+                        setWaitingForDriver(false);
+                    } else if (activeRide.status === 'accepted') {
+                        setVehiclePanel(false);
+                        setConfirmRidePanel(false);
                         setVehicleFound(false);
                         setWaitingForDriver(true);
-                        setRide(activeRide);
                     } else if (activeRide.status === 'ongoing') {
                         setWaitingForDriver(false);
+                        setVehicleFound(false);
                         navigate('/riding', { state: { ride: activeRide } });
                     }
                 }
             } catch (err) {
-                console.log("Active ride polling error/status:", err.message);
+                // 404 means no active ride in progress
+                if (err.response?.status !== 404) {
+                    console.log("Active ride check info:", err.message);
+                }
             }
         };
 
-        if (vehicleFound || waitingForDriver) {
-            intervalId = setInterval(pollActiveRide, 3000);
-            pollActiveRide();
+        // Always check on mount to persist active ride across page reloads
+        checkActiveRide();
+
+        // Continue polling if ride is active or being searched
+        if (vehicleFound || waitingForDriver || ride) {
+            intervalId = setInterval(checkActiveRide, 3000);
         }
 
         return () => {
+            isMounted = false;
             if (intervalId) clearInterval(intervalId);
         };
-    }, [vehicleFound, waitingForDriver, navigate]);
+    }, [vehicleFound, waitingForDriver, ride?._id, navigate]);
 
     const handlePickupChange = async (e) => {
         setPickup(e.target.value);
@@ -430,6 +455,7 @@ const Home = () => {
 
             <div ref={vehicleFoundRef} className='fixed w-full z-30 bottom-0 translate-y-full bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
                 <LookingForDriver
+                    ride={ride}
                     createRide={createRide}
                     cancelRide={cancelRide}
                     pickup={pickup}
@@ -440,7 +466,7 @@ const Home = () => {
                 />
             </div>
 
-            <div ref={waitingForDriverRef} className='fixed w-full z-30 bottom-0 bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
+            <div ref={waitingForDriverRef} className='fixed w-full z-30 bottom-0 translate-y-full bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
                 <WaitingForDriver
                     ride={ride}
                     cancelRide={cancelRide}

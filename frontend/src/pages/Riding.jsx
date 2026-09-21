@@ -23,6 +23,36 @@ const Riding = () => {
     const [feedback, setFeedback] = useState('');
     const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
+    // If rider refreshed /riding directly, restore ride from active ride endpoint
+    useEffect(() => {
+        if (!ride) {
+            const fetchActiveRide = async () => {
+                try {
+                    const token = localStorage.getItem('token');
+                    if (!token) {
+                        navigate('/login');
+                        return;
+                    }
+                    const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/rides/active-ride`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (response.data) {
+                        setRide(response.data);
+                        if (response.data.status === 'payment-pending') {
+                            setShowPayment(true);
+                        }
+                    } else {
+                        navigate('/home');
+                    }
+                } catch (err) {
+                    console.log("No active ride found on refresh, returning home:", err.message);
+                    navigate('/home');
+                }
+            };
+            fetchActiveRide();
+        }
+    }, [ride, navigate]);
+
     const submitRating = async () => {
         try {
             await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/rate`, {
@@ -150,13 +180,13 @@ const Riding = () => {
                     <div className='flex items-center justify-between border-b pb-4'>
                         <img 
                             className='h-14 object-contain' 
-                            src={ride?.captain.vehicle.vehicleType === 'motorcycle' || ride?.captain.vehicle.vehicleType === 'moto' ? '/Uber_Moto.webp' : ride?.captain.vehicle.vehicleType === 'auto' ? '/Uber_Auto.png' : 'https://swyft.pl/wp-content/uploads/2023/05/how-many-people-can-a-uberx-take.jpg'} 
-                            alt={ride?.captain.vehicle.vehicleType} 
+                            src={ride?.captain?.vehicle?.vehicleType === 'motorcycle' || ride?.captain?.vehicle?.vehicleType === 'moto' || ride?.vehicleType === 'motorcycle' || ride?.vehicleType === 'moto' ? '/Uber_Moto.webp' : ride?.captain?.vehicle?.vehicleType === 'auto' || ride?.vehicleType === 'auto' ? '/Uber_Auto.png' : 'https://swyft.pl/wp-content/uploads/2023/05/how-many-people-can-a-uberx-take.jpg'} 
+                            alt={ride?.captain?.vehicle?.vehicleType || ride?.vehicleType || 'vehicle'} 
                         />
                         <div className='text-right'>
-                            <h2 className='text-lg font-bold capitalize text-gray-800'>{ride?.captain.fullname.firstname}</h2>
-                            <h4 className='text-xl font-extrabold text-blue-600 -mt-1'>{ride?.captain.vehicle.plate}</h4>
-                            <p className='text-xs text-gray-500 capitalize'>{ride?.captain.vehicle.color} • {ride?.captain.vehicle.vehicleType}</p>
+                            <h2 className='text-lg font-bold capitalize text-gray-800'>{ride?.captain?.fullname?.firstname || 'Captain'}</h2>
+                            <h4 className='text-xl font-extrabold text-blue-600 -mt-1'>{ride?.captain?.vehicle?.plate || 'Active Trip'}</h4>
+                            <p className='text-xs text-gray-500 capitalize'>{ride?.captain?.vehicle?.color || ''} {ride?.captain?.vehicle?.color ? '•' : ''} {ride?.captain?.vehicle?.vehicleType || ride?.vehicleType || 'Ride'}</p>
                         </div>
                     </div>
 
