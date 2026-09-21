@@ -22,10 +22,12 @@ const paymentModel = require('../models/payment.model');
 const { calculateRideETA, predictPreBookingETA } = require('./etaService');
 const { sendMessageToUser, broadcastToAdmin } = require('../socket');
 
+const isValidObjectId = (id) => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+
 // ─── 1. Core Tools (Database Scoped) ──────────────────────────────────────────
 
 async function getCurrentRideTool(userId) {
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
         return { success: false, message: 'Please log in to check your active ride.' };
     }
 
@@ -222,7 +224,7 @@ async function getRideFareTool(userId, pickup = null, destination = null) {
 }
 
 async function getLastRideDetailsTool(userId) {
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
         return { success: false, message: 'Please log in to view your ride details.' };
     }
 
@@ -267,7 +269,7 @@ async function getLastRideDetailsTool(userId) {
 }
 
 async function getFareExplanationTool(userId) {
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
         return { success: false, message: 'Please log in to view your fare breakdown.' };
     }
 
@@ -329,7 +331,7 @@ async function getFareExplanationTool(userId) {
 }
 
 async function cancelRideTool(userId, reason = 'Passenger requested cancellation') {
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
         return { success: false, message: 'Please log in to manage your rides.' };
     }
 
@@ -380,7 +382,7 @@ async function cancelRideTool(userId, reason = 'Passenger requested cancellation
 }
 
 async function getRideHistoryTool(userId, limit = 4) {
-    if (!userId) {
+    if (!userId || !isValidObjectId(userId)) {
         return { success: false, message: 'Please log in to view your ride history.' };
     }
 
@@ -432,7 +434,7 @@ function calculateHaversineKm(lat1, lon1, lat2, lon2) {
 }
 
 async function getCaptainActiveRideTool(captainId) {
-    if (!captainId) {
+    if (!captainId || !isValidObjectId(captainId)) {
         return { success: false, message: 'Please log in as a Captain to view your assigned ride.' };
     }
 
@@ -478,7 +480,7 @@ async function getCaptainActiveRideTool(captainId) {
 }
 
 async function getCaptainTodayStatsTool(captainId) {
-    if (!captainId) {
+    if (!captainId || !isValidObjectId(captainId)) {
         return { success: false, message: 'Please log in as a Captain to view your performance stats.' };
     }
 
@@ -558,14 +560,18 @@ async function resolveQueryDeterministically(query, authContext) {
     let userType = 'user';
 
     if (typeof authContext === 'string') {
-        userId = authContext;
+        userId = isValidObjectId(authContext) ? authContext : null;
     } else if (authContext && typeof authContext === 'object') {
-        if (!authContext.userId && !authContext.captainId && authContext.toString && typeof authContext.toString === 'function') {
+        if (authContext._bsontype === 'ObjectID' || authContext.constructor?.name === 'ObjectId') {
             userId = authContext.toString();
-        } else {
-            userId = authContext.userId ? authContext.userId.toString() : null;
-            captainId = authContext.captainId ? authContext.captainId.toString() : null;
+        } else if (authContext.userId || authContext.captainId) {
+            userId = (authContext.userId && isValidObjectId(authContext.userId.toString())) ? authContext.userId.toString() : null;
+            captainId = (authContext.captainId && isValidObjectId(authContext.captainId.toString())) ? authContext.captainId.toString() : null;
             userType = authContext.userType || (captainId ? 'captain' : 'user');
+        } else {
+            userId = null;
+            captainId = null;
+            userType = authContext.userType || 'user';
         }
     }
 
@@ -918,14 +924,18 @@ async function askZenSupport(query, authContext = null) {
     let captainId = null;
     let userType = 'user';
     if (typeof authContext === 'string') {
-        userId = authContext;
+        userId = isValidObjectId(authContext) ? authContext : null;
     } else if (authContext && typeof authContext === 'object') {
-        if (!authContext.userId && !authContext.captainId && authContext.toString && typeof authContext.toString === 'function') {
+        if (authContext._bsontype === 'ObjectID' || authContext.constructor?.name === 'ObjectId') {
             userId = authContext.toString();
-        } else {
-            userId = authContext.userId ? authContext.userId.toString() : null;
-            captainId = authContext.captainId ? authContext.captainId.toString() : null;
+        } else if (authContext.userId || authContext.captainId) {
+            userId = (authContext.userId && isValidObjectId(authContext.userId.toString())) ? authContext.userId.toString() : null;
+            captainId = (authContext.captainId && isValidObjectId(authContext.captainId.toString())) ? authContext.captainId.toString() : null;
             userType = authContext.userType || (captainId ? 'captain' : 'user');
+        } else {
+            userId = null;
+            captainId = null;
+            userType = authContext.userType || 'user';
         }
     }
 
