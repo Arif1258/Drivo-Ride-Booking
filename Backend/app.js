@@ -30,9 +30,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+const http = require('http');
+const { initializeSocket, getIO } = require('./socket');
+const server = http.createServer(app);
+initializeSocket(server);
+
+// Delegate socket.io HTTP polling/handshake requests to socket.io engine immediately
+app.use((req, res, next) => {
+    const url = req.originalUrl || req.url || req.path || '';
+    if (url.startsWith('/socket.io')) {
+        const io = getIO();
+        if (io && io.engine) {
+            return io.engine.handleRequest(req, res);
+        }
+    }
+    next();
+});
+
 // Fail-fast DB connection middleware (prevents infinite buffering/loading in production)
 app.use(async (req, res, next) => {
-    if (req.path === '/' || req.method === 'OPTIONS' || process.env.NODE_ENV === 'test') return next();
+    if (req.path === '/' || req.method === 'OPTIONS' || req.path.startsWith('/socket.io') || process.env.NODE_ENV === 'test') return next();
     if (mongoose.connection.readyState !== 1) {
         try {
             await connectToDb();
@@ -44,22 +61,6 @@ app.use(async (req, res, next) => {
         return res.status(503).json({
             message: 'Database connection offline. In MongoDB Atlas, please add 0.0.0.0/0 to Network Access.'
         });
-    }
-    next();
-});
-
-const http = require('http');
-const { initializeSocket, getIO } = require('./socket');
-const server = http.createServer(app);
-initializeSocket(server);
-
-// Delegate socket.io HTTP polling/handshake requests to socket.io engine
-app.use((req, res, next) => {
-    if (req.url.startsWith('/socket.io')) {
-        const io = getIO();
-        if (io && io.engine) {
-            return io.engine.handleRequest(req, res);
-        }
     }
     next();
 });
