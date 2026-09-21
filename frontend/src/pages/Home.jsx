@@ -86,11 +86,10 @@ const Home = () => {
         };
     }, [socket, navigate]);
 
+    // 1. Initial check on mount: Restore active ride across page reloads
     useEffect(() => {
-        let intervalId;
         let isMounted = true;
-
-        const checkActiveRide = async () => {
+        const checkInitialActiveRide = async () => {
             const token = localStorage.getItem('token');
             if (!token) return;
 
@@ -102,7 +101,7 @@ const Home = () => {
 
                 if (response.data && response.data._id) {
                     const activeRide = response.data;
-                    console.log("Active ride sync:", activeRide.status, activeRide._id);
+                    console.log("Active ride sync on mount:", activeRide.status, activeRide._id);
                     setRide(activeRide);
 
                     if (activeRide.pickup) setPickup(activeRide.pickup);
@@ -128,24 +127,58 @@ const Home = () => {
             } catch (err) {
                 // 404 means no active ride in progress
                 if (err.response?.status !== 404) {
-                    console.log("Active ride check info:", err.message);
+                    console.log("Active ride check on mount:", err.message);
                 }
             }
         };
 
-        // Always check on mount to persist active ride across page reloads
-        checkActiveRide();
+        checkInitialActiveRide();
+        return () => { isMounted = false; };
+    }, [navigate]);
 
-        // Continue polling if ride is active or being searched
-        if (vehicleFound || waitingForDriver || ride) {
-            intervalId = setInterval(checkActiveRide, 3000);
-        }
+    // 2. Periodic polling: Only poll while actively searching or waiting for driver
+    useEffect(() => {
+        if (!vehicleFound && !waitingForDriver) return;
 
+        let isMounted = true;
+        const pollRide = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            try {
+                const response = await axios.get(`${import.meta.env.VITE_BASE_URL}/rides/active-ride`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!isMounted) return;
+
+                if (response.data && response.data._id) {
+                    const activeRide = response.data;
+                    setRide(activeRide);
+
+                    if (activeRide.status === 'accepted') {
+                        setVehicleFound(false);
+                        setWaitingForDriver(true);
+                    } else if (activeRide.status === 'ongoing') {
+                        setWaitingForDriver(false);
+                        setVehicleFound(false);
+                        navigate('/riding', { state: { ride: activeRide } });
+                    }
+                }
+            } catch (err) {
+                if (err.response?.status === 404) {
+                    setVehicleFound(false);
+                    setWaitingForDriver(false);
+                    setRide(null);
+                }
+            }
+        };
+
+        const intervalId = setInterval(pollRide, 3000);
         return () => {
             isMounted = false;
-            if (intervalId) clearInterval(intervalId);
+            clearInterval(intervalId);
         };
-    }, [vehicleFound, waitingForDriver, ride?._id, navigate]);
+    }, [vehicleFound, waitingForDriver, navigate]);
 
     const handlePickupChange = async (e) => {
         setPickup(e.target.value);
@@ -277,24 +310,39 @@ const Home = () => {
 
     async function cancelRide(reason = 'User cancelled ride') {
         try {
-            if (ride?._id) {
+            const token = localStorage.getItem('token');
+            const targetRideId = ride?._id;
+            if (targetRideId) {
                 await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/cancel`, {
-                    rideId: ride._id,
+                    rideId: targetRideId,
                     reason
                 }, {
-                    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+                    headers: { Authorization: `Bearer ${token}` }
                 });
+            } else {
+                try {
+                    const activeRes = await axios.get(`${import.meta.env.VITE_BASE_URL}/rides/active-ride`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    if (activeRes.data?._id) {
+                        await axios.post(`${import.meta.env.VITE_BASE_URL}/rides/cancel`, {
+                            rideId: activeRes.data._id,
+                            reason
+                        }, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                    }
+                } catch (e) {
+                    // Ignore if no active ride
+                }
             }
+        } catch (error) {
+            console.error('Error cancelling ride:', error);
+        } finally {
             setWaitingForDriver(false);
             setVehicleFound(false);
             setConfirmRidePanel(false);
             setVehiclePanel(false);
-            setRide(null);
-        } catch (error) {
-            console.error('Error cancelling ride:', error);
-            alert(error.response?.data?.message || 'Failed to cancel ride.');
-            setWaitingForDriver(false);
-            setVehicleFound(false);
             setRide(null);
         }
     }

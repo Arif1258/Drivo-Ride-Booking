@@ -9,7 +9,13 @@ const LookingForDriver = (props) => {
             {/* Pull Bar */}
             <div 
                 className='w-12 h-1 bg-gray-200 rounded-full mx-auto mb-6 cursor-pointer' 
-                onClick={() => props.setVehicleFound ? props.setVehicleFound(false) : null}
+                onClick={() => {
+                    if (props.cancelRide) {
+                        props.cancelRide('User dismissed ride search');
+                    } else if (props.setVehicleFound) {
+                        props.setVehicleFound(false);
+                    }
+                }}
             ></div>
             
             {/* Pulsing Searching Animation with AI Indicator */}

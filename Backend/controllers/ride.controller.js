@@ -296,11 +296,23 @@ module.exports.getActiveRideByUser = async (req, res) => {
         const ride = await rideModel.findOne({
             user: req.user._id,
             status: { $in: [ 'pending', 'accepted', 'ongoing', 'payment-pending' ] }
-        }).populate('user').populate('captain').select('+otp');
+        }).sort({ createdAt: -1 }).populate('user').populate('captain').select('+otp');
 
         if (!ride) {
             return res.status(404).json({ message: 'No active ride found' });
         }
+
+        // Auto-expire pending rides older than 10 minutes
+        if (ride.status === 'pending') {
+            const ageMinutes = (Date.now() - new Date(ride.createdAt).getTime()) / (1000 * 60);
+            if (ageMinutes > 10) {
+                ride.status = 'cancelled';
+                ride.cancellationReason = 'Ride request timed out - no captain accepted in time';
+                await ride.save();
+                return res.status(404).json({ message: 'No active ride found' });
+            }
+        }
+
         return res.status(200).json(ride);
     } catch (err) {
         return res.status(500).json({ message: err.message });
@@ -312,7 +324,7 @@ module.exports.getActiveRideByCaptain = async (req, res) => {
         const ride = await rideModel.findOne({
             captain: req.captain._id,
             status: { $in: [ 'accepted', 'ongoing', 'payment-pending' ] }
-        }).populate('user').populate('captain').select('+otp');
+        }).sort({ createdAt: -1 }).populate('user').populate('captain').select('+otp');
 
         if (!ride) {
             return res.status(404).json({ message: 'No active ride found' });
@@ -325,9 +337,11 @@ module.exports.getActiveRideByCaptain = async (req, res) => {
 
 module.exports.getPendingRides = async (req, res) => {
     try {
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
         const rides = await rideModel.find({
-            status: 'pending'
-        }).populate('user');
+            status: 'pending',
+            createdAt: { $gte: tenMinutesAgo }
+        }).populate('user').sort({ createdAt: -1 });
         return res.status(200).json(rides);
     } catch (err) {
         return res.status(500).json({ message: err.message });
