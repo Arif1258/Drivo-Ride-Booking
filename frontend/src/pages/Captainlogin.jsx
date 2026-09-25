@@ -58,10 +58,10 @@ const Captainlogin = () => {
       {/* Left Column: Visual Captain Value Prop */}
       <div className='hidden lg:flex lg:w-1/2 bg-slate-900/40 border-r border-white/5 p-12 flex-col justify-between relative'>
         <div className='flex items-center gap-3 z-10'>
-          <div className='h-9 w-9 bg-gradient-to-tr from-emerald-650 to-teal-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20'>
-            <span className='font-black text-lg'>D</span>
+          <div className='h-10 w-10 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20'>
+            <span className='font-black text-xl text-white'>T</span>
           </div>
-          <span className='text-lg font-bold tracking-tight text-white'>Drivo Captain</span>
+          <span className='text-xl font-bold tracking-tight text-white'>Tribo Captain</span>
         </div>
 
         <div className='space-y-6 max-w-md z-10'>
@@ -72,12 +72,12 @@ const Captainlogin = () => {
             Maximize your earnings <br />every single day.
           </h2>
           <p className='text-slate-400 leading-relaxed'>
-            Drivo is the smartest platform for drivers. Experience optimized route dispatches, dynamic bonuses, and immediate payouts directly to your account.
+            Tribo is the smartest platform for drivers. Experience optimized route dispatches, dynamic bonuses, and immediate payouts directly to your account.
           </p>
         </div>
 
         <div className='text-xs text-slate-500 z-10'>
-          © 2026 Drivo Inc. All rights reserved.
+          © 2026 Tribo Inc. All rights reserved.
         </div>
       </div>
 
@@ -88,9 +88,9 @@ const Captainlogin = () => {
           <div className='flex items-center justify-between lg:hidden'>
             <div className='flex items-center gap-2'>
               <div className='h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center'>
-                <span className='font-black text-base'>D</span>
+                <span className='font-black text-base text-white'>T</span>
               </div>
-              <span className='text-base font-bold tracking-tight'>Drivo Captain</span>
+              <span className='text-base font-bold tracking-tight'>Tribo Captain</span>
             </div>
             <Link to='/' className='text-xs text-slate-400 hover:text-slate-200 transition-colors'>Cancel</Link>
           </div>

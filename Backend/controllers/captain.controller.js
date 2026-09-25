@@ -5,6 +5,7 @@ const aiRiskLogModel = require('../models/aiRiskLog.model');
 const rideModel = require('../models/ride.model');
 const { haversineKm } = require('../services/etaService');
 const { broadcastToAdmin } = require('../socket');
+const { validateGpsTelemetry } = require('../services/ai/gpsAnomalyService');
 const { validationResult } = require('express-validator');
 
 
@@ -121,62 +122,36 @@ module.exports.updateLocation = async (req, res, next) => {
             return res.status(404).json({ message: 'Captain not found' });
         }
 
-        // GPS Teleportation & Impossible Speed Anomaly Check
-        let isAnomalyDetected = false;
-        let speedKmH = 0;
-        let distanceKm = 0;
+        // Live GPS Telemetry & Anomaly Validation
+        const activeRide = await rideModel.findOne({
+            captain: captain._id,
+            status: { $in: ['accepted', 'ongoing'] }
+        });
+
         const now = new Date();
+        const anomalyCheck = await validateGpsTelemetry({
+            currentLocation: location,
+            previousLocation: captain.location,
+            currentTimestamp: now,
+            previousTimestamp: captain.lastLocationUpdate,
+            captainId: captain._id,
+            rideId: activeRide?._id,
+            userId: activeRide?.user
+        });
 
-        if (captain.location?.coordinates?.length === 2 && captain.lastLocationUpdate) {
-            const prevLng = captain.location.coordinates[0];
-            const prevLat = captain.location.coordinates[1];
-            distanceKm = haversineKm(prevLat, prevLng, location.ltd, location.lng);
-            const timeDeltaSec = (now.getTime() - new Date(captain.lastLocationUpdate).getTime()) / 1000;
+        let isAnomalyDetected = anomalyCheck.isAnomalous;
+        let speedKmH = anomalyCheck.speedKmH;
 
-            if (timeDeltaSec > 0 && timeDeltaSec <= 120) {
-                speedKmH = parseFloat(((distanceKm / (timeDeltaSec / 3600))).toFixed(1));
-                // Impossible speed threshold (> 150 km/h) or teleportation (> 500m in under 3s)
-                if (speedKmH > 150 || (distanceKm > 0.5 && timeDeltaSec <= 3)) {
-                    isAnomalyDetected = true;
-                    console.warn(`🚨 GPS Anomaly Detected for Captain ${captain._id}: ${speedKmH} km/h over ${timeDeltaSec}s (${distanceKm.toFixed(2)} km)`);
-
-                    try {
-                        const activeRide = await rideModel.findOne({
-                            captain: captain._id,
-                            status: { $in: ['accepted', 'ongoing'] }
-                        });
-
-                        await aiRiskLogModel.create({
-                            rideId: activeRide?._id || captain._id,
-                            userId: activeRide?.user || captain._id,
-                            captainId: captain._id,
-                            riskScore: Math.min(100, Math.round(50 + (speedKmH > 150 ? (speedKmH - 150) * 0.4 : 40))),
-                            riskLevel: 'HIGH',
-                            reasons: [{
-                                code: 'GPS_SPOOF_TELEPORTATION',
-                                description: `Implied speed of ${speedKmH} km/h (${distanceKm.toFixed(2)} km in ${timeDeltaSec.toFixed(1)}s) exceeds physical driving constraints. Possible location mock/spoof.`,
-                                severity: 'HIGH'
-                            }],
-                            featuresSnapshot: {
-                                distanceMeters: Math.round(distanceKm * 1000),
-                                durationSeconds: Math.round(timeDeltaSec),
-                                averageSpeedKmH: speedKmH
-                            }
-                        });
-
-                        broadcastToAdmin('high-risk-ride', {
-                            type: 'GPS_SPOOF_TELEPORTATION',
-                            captainId: captain._id,
-                            speedKmH,
-                            distanceKm: distanceKm.toFixed(2),
-                            timeDeltaSec: timeDeltaSec.toFixed(1),
-                            riskScore: 85
-                        });
-                    } catch (logErr) {
-                        console.warn('Failed to log GPS anomaly:', logErr.message);
-                    }
-                }
-            }
+        if (isAnomalyDetected) {
+            console.warn(`🚨 GPS Anomaly Flagged for Captain ${captain._id}: ${anomalyCheck.reasons.map(r => r.code).join(', ')} (Speed: ${speedKmH} km/h)`);
+            broadcastToAdmin('high-risk-ride', {
+                type: anomalyCheck.reasons[0]?.code || 'GPS_SPOOF_TELEPORTATION',
+                captainId: captain._id,
+                speedKmH,
+                distanceKm: anomalyCheck.distanceKm?.toFixed(2),
+                timeDeltaSec: anomalyCheck.timeDeltaSec?.toFixed(1),
+                riskScore: 85
+            });
         }
 
         captain.location = {

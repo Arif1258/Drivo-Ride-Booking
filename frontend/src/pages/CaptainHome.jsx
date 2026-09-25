@@ -292,8 +292,11 @@ const CaptainHome = () => {
             <div className='fixed p-4 sm:p-6 top-0 flex items-center justify-between w-screen z-25 pointer-events-none'>
                 <div className='flex items-center gap-2 sm:gap-3 pointer-events-auto'>
                     <div className='h-10 w-10 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20'>
-                        <span className='font-black text-xl'>D</span>
+                        <span className='font-black text-xl text-white'>T</span>
                     </div>
+                    <span className='hidden sm:inline font-bold text-xs tracking-tight text-white/90 bg-slate-900/80 px-2.5 py-1 rounded-full border border-white/10'>
+                        Tribo Captain
+                    </span>
                     <button
                         onClick={toggleStatus}
                         className={`px-3 py-1.5 backdrop-blur border rounded-full flex items-center gap-2 shadow-lg transition-all cursor-pointer ${

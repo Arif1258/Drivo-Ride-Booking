@@ -13,6 +13,7 @@ const rideRoutes = require('./routes/ride.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const aiRoutes = require('./routes/ai.routes');
 const demandRoutes = require('./routes/demand.routes');
+const assistantRoutes = require('./routes/assistant.routes');
 const { seedHistoricalRidesIfEmpty } = require('./services/demandPredictionService');
 
 const mongoose = require('mongoose');
@@ -84,6 +85,8 @@ app.use('/api', paymentRoutes);
 app.use('/', paymentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/ai', aiRoutes);
+app.use('/api/assistant', assistantRoutes);
+app.use('/assistant', assistantRoutes);
 app.use('/api/demand', demandRoutes);
 app.use('/demand', demandRoutes);
 

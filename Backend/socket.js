@@ -5,6 +5,7 @@ const rideModel = require('./models/ride.model');
 const aiRiskLogModel = require('./models/aiRiskLog.model');
 const etaService = require('./services/etaService');
 const { haversineKm } = etaService;
+const { validateGpsTelemetry } = require('./services/ai/gpsAnomalyService');
 
 let io;
 
@@ -52,52 +53,32 @@ function initializeSocket(server) {
                 const captain = await captainModel.findById(userId);
                 if (captain) {
                     const now = new Date();
-                    // Live GPS Jump & Speed Anomaly Detection
-                    if (captain.location?.coordinates?.length === 2 && captain.lastLocationUpdate) {
-                        const prevLng = captain.location.coordinates[0];
-                        const prevLat = captain.location.coordinates[1];
-                        const distanceKm = haversineKm(prevLat, prevLng, location.ltd, location.lng);
-                        const timeDeltaSec = (now.getTime() - new Date(captain.lastLocationUpdate).getTime()) / 1000;
+                    const activeRide = await rideModel.findOne({
+                        captain: userId,
+                        status: { $in: ['accepted', 'ongoing'] }
+                    });
 
-                        if (timeDeltaSec > 0 && timeDeltaSec <= 120) {
-                            const speedKmH = parseFloat(((distanceKm / (timeDeltaSec / 3600))).toFixed(1));
-                            if (speedKmH > 150 || (distanceKm > 0.5 && timeDeltaSec <= 3)) {
-                                console.warn(`🚨 Real-time GPS Anomaly (Socket): Captain ${userId} Speed: ${speedKmH} km/h (${distanceKm.toFixed(2)} km in ${timeDeltaSec.toFixed(1)}s)`);
+                    const anomalyCheck = await validateGpsTelemetry({
+                        currentLocation: location,
+                        previousLocation: captain.location,
+                        currentTimestamp: now,
+                        previousTimestamp: captain.lastLocationUpdate,
+                        captainId: userId,
+                        rideId: activeRide?._id,
+                        userId: activeRide?.user
+                    });
 
-                                const activeRide = await rideModel.findOne({
-                                    captain: userId,
-                                    status: { $in: ['accepted', 'ongoing'] }
-                                });
-
-                                await aiRiskLogModel.create({
-                                    rideId: activeRide?._id || userId,
-                                    userId: activeRide?.user || userId,
-                                    captainId: userId,
-                                    riskScore: Math.min(100, Math.round(50 + (speedKmH > 150 ? (speedKmH - 150) * 0.4 : 40))),
-                                    riskLevel: 'HIGH',
-                                    reasons: [{
-                                        code: 'GPS_SPOOF_TELEPORTATION',
-                                        description: `Instant location jump detected: ${distanceKm.toFixed(2)} km in ${timeDeltaSec.toFixed(1)}s (${speedKmH} km/h). Potential spoofing.`,
-                                        severity: 'HIGH'
-                                    }],
-                                    featuresSnapshot: {
-                                        distanceMeters: Math.round(distanceKm * 1000),
-                                        durationSeconds: Math.round(timeDeltaSec),
-                                        averageSpeedKmH: speedKmH
-                                    }
-                                });
-
-                                if (io) {
-                                    io.to('admin').emit('high-risk-ride', {
-                                        type: 'GPS_SPOOF_TELEPORTATION',
-                                        captainId: userId,
-                                        speedKmH,
-                                        distanceKm: distanceKm.toFixed(2),
-                                        timeDeltaSec: timeDeltaSec.toFixed(1),
-                                        riskScore: 85
-                                    });
-                                }
-                            }
+                    if (anomalyCheck.isAnomalous) {
+                        console.warn(`🚨 Real-time GPS Anomaly (Socket): Captain ${userId} Speed: ${anomalyCheck.speedKmH} km/h (${anomalyCheck.reasons.map(r => r.code).join(', ')})`);
+                        if (io) {
+                            io.to('admin').emit('high-risk-ride', {
+                                type: anomalyCheck.reasons[0]?.code || 'GPS_SPOOF_TELEPORTATION',
+                                captainId: userId,
+                                speedKmH: anomalyCheck.speedKmH,
+                                distanceKm: anomalyCheck.distanceKm?.toFixed(2),
+                                timeDeltaSec: anomalyCheck.timeDeltaSec?.toFixed(1),
+                                riskScore: 85
+                            });
                         }
                     }
 

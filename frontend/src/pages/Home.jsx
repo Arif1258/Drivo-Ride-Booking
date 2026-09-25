@@ -343,34 +343,38 @@ const Home = () => {
         <div className='h-screen relative overflow-hidden font-sans bg-slate-550'>
             {/* Header: Brand & Navigation */}
             <div className='absolute left-6 top-6 z-25 flex items-center gap-3 pointer-events-none'>
-                <div className='h-10 w-10 bg-black text-white rounded-xl flex items-center justify-center shadow-lg pointer-events-auto'>
-                    <span className='font-black text-xl'>D</span>
+                <div className='h-11 w-11 bg-gradient-to-tr from-slate-900 to-indigo-950 border border-white/20 text-white rounded-2xl flex items-center justify-center shadow-2xl pointer-events-auto backdrop-blur-md'>
+                    <span className='font-black text-2xl tracking-tighter text-white'>T</span>
                 </div>
-                {aiEtaInfo && (
-                    <div className='pointer-events-auto hidden sm:flex items-center gap-2 bg-slate-900/90 backdrop-blur text-white px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg text-xs font-semibold animate-fade-in'>
-                        <Sparkles className='h-3.5 w-3.5 text-blue-400' />
-                        <span>AI ETA: <strong className='text-blue-400'>{aiEtaInfo.aiEtaMinutes} mins</strong> ({aiEtaInfo.trafficCondition})</span>
-                    </div>
-                )}
+                <div className='hidden sm:flex items-center gap-2 bg-slate-900/90 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg text-xs font-bold pointer-events-auto'>
+                    <span className='tracking-tight'>Tribo</span>
+                    {aiEtaInfo && (
+                        <>
+                            <span className='h-3 w-px bg-white/20'></span>
+                            <Sparkles className='h-3.5 w-3.5 text-blue-400' />
+                            <span>AI ETA: <strong className='text-blue-400'>{aiEtaInfo.aiEtaMinutes} mins</strong></span>
+                        </>
+                    )}
+                </div>
             </div>
 
             <div className='absolute right-6 top-6 z-25 flex gap-2 print:hidden'>
                 {/* AI Support Assistant Button */}
                 <button
                     onClick={() => setSupportOpen(true)}
-                    className='h-11 px-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white backdrop-blur shadow-lg shadow-blue-500/25 flex items-center gap-2 rounded-full hover:scale-105 transition-all text-xs font-bold'
+                    className='h-11 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-xl shadow-indigo-500/25 flex items-center gap-2 rounded-full hover:scale-105 active:scale-95 transition-all text-xs font-bold border border-white/20'
                     title="AI Support Assistant"
                 >
                     <Bot className='h-4 w-4' />
-                    <span className='hidden sm:inline'>AI Support</span>
+                    <span className='hidden sm:inline'>Zen Copilot</span>
                 </button>
-                <Link to='/payments' className='h-11 w-11 bg-white/90 backdrop-blur shadow-lg flex items-center justify-center rounded-full hover:scale-105 transition-all text-slate-800' title="Payment History">
+                <Link to='/payments' className='h-11 w-11 bg-white/95 backdrop-blur-md shadow-xl border border-slate-200/80 flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all text-slate-800 hover:text-indigo-600' title="Payment History">
                     <History className='h-5 w-5' />
                 </Link>
-                <Link to='/admin-analytics' className='h-11 w-11 bg-white/90 backdrop-blur shadow-lg flex items-center justify-center rounded-full hover:scale-105 transition-all text-slate-800' title="Admin Analytics">
+                <Link to='/admin-analytics' className='h-11 w-11 bg-white/95 backdrop-blur-md shadow-xl border border-slate-200/80 flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all text-slate-800 hover:text-indigo-600' title="Admin Analytics">
                     <PieChart className='h-5 w-5' />
                 </Link>
-                <Link to='/user/logout' className='h-11 w-11 bg-white/90 backdrop-blur shadow-lg flex items-center justify-center rounded-full hover:scale-105 transition-all text-red-600' title="Logout">
+                <Link to='/user/logout' className='h-11 w-11 bg-white/95 backdrop-blur-md shadow-xl border border-slate-200/80 flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all text-rose-600 hover:bg-rose-50' title="Logout">
                     <LogOut className='h-5 w-5' />
                 </Link>
             </div>

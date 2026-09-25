@@ -32,14 +32,14 @@ const ConfirmRide = ({
     };
 
     const vehicleLabels = {
-        car: 'Drivo Prime Car',
-        motorcycle: 'Drivo Moto Fast',
-        moto: 'Drivo Moto Fast',
-        auto: 'Drivo Auto Rickshaw'
+        car: 'Tribo Prime Car',
+        motorcycle: 'Tribo Moto Fast',
+        moto: 'Tribo Moto Fast',
+        auto: 'Tribo Auto Rickshaw'
     };
 
     const displayImage = vehicleImages[vehicleType] || vehicleImages.car;
-    const displayLabel = vehicleLabels[vehicleType] || 'Drivo Ride';
+    const displayLabel = vehicleLabels[vehicleType] || 'Tribo Ride';
     const fareAmount = fare && vehicleType && fare[vehicleType] !== undefined ? fare[vehicleType] : null;
 
     const handleConfirm = () => {

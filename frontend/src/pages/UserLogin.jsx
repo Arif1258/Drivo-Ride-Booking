@@ -58,10 +58,10 @@ const UserLogin = () => {
       {/* Left Column: Visual Brand Storytelling */}
       <div className='hidden lg:flex lg:w-1/2 bg-slate-900/40 border-r border-white/5 p-12 flex-col justify-between relative'>
         <div className='flex items-center gap-3 z-10'>
-          <div className='h-9 w-9 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20'>
-            <span className='font-black text-lg'>D</span>
+          <div className='h-10 w-10 bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20'>
+            <span className='font-black text-xl text-white'>T</span>
           </div>
-          <span className='text-lg font-bold tracking-tight text-white'>Drivo</span>
+          <span className='text-xl font-bold tracking-tight text-white'>Tribo</span>
         </div>
 
         <div className='space-y-6 max-w-md z-10'>
@@ -72,12 +72,12 @@ const UserLogin = () => {
             Travel with complete <br />peace of mind.
           </h2>
           <p className='text-slate-400 leading-relaxed'>
-            We verify all captains and vehicles to ensure premium, high-quality, and secure rides. Choose your ride, check your OTP, and enjoy the journey.
+            Tribo verifies all captains and vehicles to ensure premium, high-quality, and secure rides. Choose your ride, check your OTP, and enjoy the journey.
           </p>
         </div>
 
         <div className='text-xs text-slate-500 z-10'>
-          © 2026 Drivo Inc. All rights reserved.
+          © 2026 Tribo Inc. All rights reserved.
         </div>
       </div>
 
@@ -88,9 +88,9 @@ const UserLogin = () => {
           <div className='flex items-center justify-between lg:hidden'>
             <div className='flex items-center gap-2'>
               <div className='h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center'>
-                <span className='font-black text-base'>D</span>
+                <span className='font-black text-base text-white'>T</span>
               </div>
-              <span className='text-base font-bold tracking-tight'>Drivo</span>
+              <span className='text-base font-bold tracking-tight'>Tribo</span>
             </div>
             <Link to='/' className='text-xs text-slate-400 hover:text-slate-200 transition-colors'>Cancel</Link>
           </div>
@@ -166,13 +166,13 @@ const UserLogin = () => {
 
           <div className='space-y-4 pt-4 border-t border-white/5 text-center'>
             <p className='text-sm text-slate-400'>
-              New to Drivo? <Link to='/signup' className='text-blue-400 hover:underline font-semibold'>Create an account</Link>
+              New to Tribo? <Link to='/signup' className='text-blue-400 hover:underline font-semibold'>Create an account</Link>
             </p>
             <Link 
               to='/captain-login' 
               className='inline-flex items-center gap-2 px-4 py-2 border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold uppercase tracking-wider rounded-xl transition-all'
             >
-              Sign in as Captain <ArrowRight className='h-3 w-3' />
+              Sign in as Tribo Captain <ArrowRight className='h-3 w-3' />
             </Link>
           </div>
         </div>

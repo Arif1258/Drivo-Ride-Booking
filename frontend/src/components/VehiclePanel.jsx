@@ -10,7 +10,7 @@ const VehiclePanel = (props) => {
             <h3 className='text-2xl font-black text-gray-900 tracking-tight mb-5'>Choose a Ride</h3>
             
             <div className='space-y-3'>
-                {/* DrivoGo (Car) Option */}
+                {/* TriboGo (Car) Option */}
                 <div 
                     onClick={() => {
                         props.setConfirmRidePanel(true);
@@ -22,7 +22,7 @@ const VehiclePanel = (props) => {
                         <img className='h-12 w-16 object-contain' src="https://swyft.pl/wp-content/uploads/2023/05/how-many-people-can-a-uberx-take.jpg" alt="Car" />
                         <div>
                             <h4 className='font-bold text-sm text-gray-800 flex items-center gap-1.5'>
-                                DrivoGo 
+                                TriboGo 
                                 <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-semibold'>
                                     <User className='h-3 w-3' /> 4
                                 </span>
@@ -37,7 +37,7 @@ const VehiclePanel = (props) => {
                     </div>
                 </div>
 
-                {/* Moto Option */}
+                {/* TriboMoto Option */}
                 <div 
                     onClick={() => {
                         props.setConfirmRidePanel(true);
@@ -49,7 +49,7 @@ const VehiclePanel = (props) => {
                         <img className='h-12 w-16 object-contain' src="/Uber_Moto.webp" alt="Moto" />
                         <div>
                             <h4 className='font-bold text-sm text-gray-800 flex items-center gap-1.5'>
-                                DrivoMoto 
+                                TriboMoto 
                                 <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-semibold'>
                                     <User className='h-3 w-3' /> 1
                                 </span>
@@ -64,7 +64,7 @@ const VehiclePanel = (props) => {
                     </div>
                 </div>
 
-                {/* Auto Option */}
+                {/* TriboAuto Option */}
                 <div 
                     onClick={() => {
                         props.setConfirmRidePanel(true);
@@ -76,7 +76,7 @@ const VehiclePanel = (props) => {
                         <img className='h-12 w-16 object-contain' src="/Uber_Auto.png" alt="Auto" />
                         <div>
                             <h4 className='font-bold text-sm text-gray-800 flex items-center gap-1.5'>
-                                DrivoAuto 
+                                TriboAuto 
                                 <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-semibold'>
                                     <User className='h-3 w-3' /> 3
                                 </span>

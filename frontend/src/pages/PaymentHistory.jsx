@@ -40,7 +40,7 @@ const PaymentHistory = () => {
                     </style>
                 </head>
                 <body>
-                    <h2 style="text-align: center;">DRIVO INVOICE</h2>
+                    <h2 style="text-align: center;">TRIBO INVOICE</h2>
                     <p style="text-align: center;">Date: ${new Date(payment.createdAt).toLocaleString()}</p>
                     <hr />
                     <div class="flex"><p>Payment ID:</p><p>${payment.paymentId}</p></div>
@@ -51,7 +51,7 @@ const PaymentHistory = () => {
                     <hr />
                     <div class="flex"><h3>TOTAL AMOUNT:</h3><h3>₹${payment.amount}</h3></div>
                     <hr />
-                    <p style="text-align: center; margin-top: 40px;">Thank you for riding with Drivo!</p>
+                    <p style="text-align: center; margin-top: 40px;">Thank you for riding with Tribo!</p>
                 </body>
             </html>
         `);

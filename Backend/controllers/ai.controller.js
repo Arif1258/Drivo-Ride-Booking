@@ -9,6 +9,7 @@ const repositioningService = require('../services/driverRepositioningService');
 const etaService = require('../services/etaService');
 const anomalyDetectionService = require('../services/ai/anomalyDetectionService');
 const aiSupportService = require('../services/aiSupportService');
+const assistantOrchestrator = require('../services/ai/assistantOrchestrator');
 const driverInsightService = require('../services/ai/driverInsightService');
 const captainModel = require('../models/captain.model');
 const rideModel = require('../models/ride.model');
@@ -173,31 +174,41 @@ module.exports.evaluateRisk = async (req, res) => {
     }
 };
 
-// 6. Zen — AI-Powered Customer Support Assistant with Tool Calling
+// 6. Zen — AI-Powered Customer Support Assistant with Tool Calling & RAG
 module.exports.supportChat = async (req, res) => {
     try {
-        const { query } = req.body;
+        const { query, message, history } = req.body;
+        const textToProcess = query || message;
+
         // Strict tenant isolation: only use verified identity from verified token
         const userId = req.user?._id ? req.user._id.toString() : null;
         const captainId = req.captain?._id ? req.captain._id.toString() : null;
-        const userType = req.captain ? 'captain' : 'user';
+        const isAdmin = req.user?.role === 'admin';
+        const role = isAdmin ? 'admin' : (captainId ? 'captain' : (userId ? 'user' : 'guest'));
 
-        if (!query) {
+        if (!textToProcess) {
             return res.status(400).json({ message: 'Query message is required' });
         }
 
-        const response = await aiSupportService.askZenSupport(query, { userId, captainId, userType });
-        const defaultActions = userType === 'captain'
-            ? ['Where is my rider?', 'What is the pickup location?', 'How much have I earned today?', 'What is my acceptance rate?']
-            : ['Where is my driver?', "What's my ETA?", 'Show me my latest ride', 'Why was surge pricing applied?'];
+        const orchestratorResult = await assistantOrchestrator.processAssistantChat(textToProcess, {
+            userId,
+            captainId,
+            role,
+            isAdmin
+        }, history || []);
 
         return res.status(200).json({
-            text: response.text,
+            success: true,
+            answer: orchestratorResult.answer,
+            text: orchestratorResult.answer,
             confidence: 0.98,
-            source: response.source || 'zen_ai',
-            cardType: response.cardType,
-            cardData: response.cardData,
-            suggestedActions: response.suggestedActions || defaultActions
+            source: orchestratorResult.sources?.[0]?.title || 'Tribo AI Assistant',
+            sources: orchestratorResult.sources || [],
+            toolCalls: orchestratorResult.toolCalls || [],
+            cardType: orchestratorResult.cardType || null,
+            cardData: orchestratorResult.cardData || null,
+            metadata: orchestratorResult.metadata,
+            suggestedActions: orchestratorResult.suggestedActions || []
         });
     } catch (err) {
         console.error('Zen support assistant error:', err);
