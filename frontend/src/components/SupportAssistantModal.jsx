@@ -4,16 +4,16 @@ import {
     Bot, Send, X, Sparkles, Navigation, Clock, 
     UserCheck, DollarSign, Ban, History, Shield, Car, Phone, Star, MapPin,
     Award, CheckCircle2, ChevronRight, TrendingUp, RotateCcw, AlertCircle, HelpCircle,
-    Info, Compass
+    Info, Compass, AlertTriangle, Key, ArrowRight, Mail, PhoneCall
 } from 'lucide-react';
 
-const STARTER_PROMPTS = [
-    { label: "Where is my driver?", icon: Navigation, desc: "Check live GPS position & ETA" },
-    { label: "What's my current ride status?", icon: Car, desc: "Pending, accepted, or ongoing" },
-    { label: "Show my recent rides", icon: History, desc: "Past trips and fare breakdown" },
-    { label: "How much did I pay?", icon: DollarSign, desc: "Last ride payment and receipts" },
-    { label: "How do I cancel a ride?", icon: Ban, desc: "Cancellation window & fee policy" },
-    { label: "How does Tribo work?", icon: HelpCircle, desc: "Booking guide, safety & vehicles" }
+const CUSTOMER_QUICK_ACTIONS = [
+    { label: "🚗 Book a Ride", query: "Book a ride from Salt Lake to Park Street.", desc: "Instant booking with smart fare estimate" },
+    { label: "📍 Track Current Ride", query: "Where is my driver?", desc: "Check live driver telemetry & ETA" },
+    { label: "❌ Cancel Ride", query: "Cancel my current ride.", desc: "Safe cancellation & fee check" },
+    { label: "🧾 Ride History", query: "Show my recent rides.", desc: "Past journeys and payment receipts" },
+    { label: "💰 Available Ride Options", query: "What are my available ride options?", desc: "Drivo Go, Auto, and Moto options" },
+    { label: "🆘 Contact Support", query: "I want to contact support.", desc: "24/7 Drivo Care hotline & email" }
 ];
 
 const CAPTAIN_STARTER_PROMPTS = [
@@ -32,16 +32,24 @@ const ADMIN_STARTER_PROMPTS = [
     { label: "Citywide demand hotspots", icon: TrendingUp, desc: "Surge clusters and vehicle density" }
 ];
 
-const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
+const SupportAssistantModal = ({ 
+    isOpen, 
+    onClose, 
+    userType = 'user',
+    onRideCreated,
+    onRideCancelled
+}) => {
     const isCaptain = userType === 'captain';
     const isAdmin = userType === 'admin';
-    const activePrompts = isAdmin ? ADMIN_STARTER_PROMPTS : (isCaptain ? CAPTAIN_STARTER_PROMPTS : STARTER_PROMPTS);
+    const activePrompts = isAdmin 
+        ? ADMIN_STARTER_PROMPTS 
+        : (isCaptain ? CAPTAIN_STARTER_PROMPTS : CUSTOMER_QUICK_ACTIONS.map(q => ({ label: q.label, icon: Car, desc: q.desc, query: q.query })));
 
     const initialGreeting = isAdmin
-        ? "👋 Welcome Admin! I'm **Zen**, your AI Operations Copilot for Tribo. I'm connected to live fleet analytics, active ride counts, revenue telemetry, and safety anomaly detection.\n\nHow can I help you manage the platform?"
+        ? "👋 Welcome Admin! I'm your **Drivo Operations Copilot**. Connected to live fleet analytics, active ride counts, revenue telemetry, and safety anomaly detection.\n\nHow can I help you manage the platform?"
         : isCaptain
-            ? "👋 Hi Captain! I'm **Zen**, your Tribo AI Driving Copilot. I can pull up your active trip pickup telemetry, today's shift earnings, driver rating, or recommend high-demand repositioning hotspots.\n\nWhat would you like to check?"
-            : "👋 Hi! I'm **Zen**, your Tribo AI Customer Copilot. Powered by live telemetry and smart tool calling, I can track your driver's arrival in real time, calculate traffic-adjusted ETAs, explain fare receipts, or assist with cancellation policies.\n\nHow can I help with your journey today?";
+            ? "👋 Hi Captain! I'm your **Drivo Captain Assistant**. I can pull up your active trip pickup telemetry, today's shift earnings, driver rating, or recommend high-demand repositioning hotspots.\n\nWhat would you like to check?"
+            : "👋 Hi! I'm your **Drivo AI Customer Assistant**.\n\nI can book rides, track your driver's live GPS position, calculate traffic-adjusted ETAs, explain fare receipts, or manage cancellations safely.\n\nHow can I help you with your journey today?";
 
     const [messages, setMessages] = useState([
         {
@@ -69,7 +77,6 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
         }
     }, [messages, isOpen]);
 
-    // Reset greeting if role changes
     useEffect(() => {
         handleResetChat();
     }, [userType]);
@@ -145,6 +152,13 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
             };
 
             setMessages(prev => [...prev, aiReply]);
+
+            // Notify parent page of active ride updates
+            if (data.cardType === 'booking_success' && data.cardData?.ride && onRideCreated) {
+                onRideCreated(data.cardData.ride);
+            } else if (data.cardType === 'cancel_success' && onRideCancelled) {
+                onRideCancelled(data.cardData);
+            }
         } catch (err) {
             console.error('Support assistant chat error:', err);
             setHasError(true);
@@ -153,7 +167,7 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                 ...prev,
                 {
                     sender: 'ai',
-                    text: "I'm temporarily having trouble connecting to live trip services. If you need immediate assistance, our 24/7 Tribo helpline is available at support@tribo.com or call 1800-TRIBO-SAFE.",
+                    text: "I'm temporarily having trouble connecting to live trip services. For immediate assistance, our 24/7 Drivo helpline is available at support@drivo.com or call 1800-DRIVO-SAFE.",
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     source: 'fallback',
                     isError: true
@@ -170,7 +184,7 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
 
     return (
         <div className='fixed inset-0 z-[999] bg-slate-950/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200'>
-            <div className='bg-white text-slate-900 w-full sm:max-w-xl h-[92vh] sm:h-[720px] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-100/90 relative'>
+            <div className='bg-white text-slate-900 w-full sm:max-w-xl h-[94vh] sm:h-[740px] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-100 relative'>
                 
                 {/* Header */}
                 <div className={`p-4 sm:p-5 flex items-center justify-between border-b shadow-sm text-white ${
@@ -195,7 +209,7 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                         </div>
                         <div>
                             <div className='flex items-center gap-2'>
-                                <h3 className='font-bold text-base tracking-tight text-white'>Zen Copilot</h3>
+                                <h3 className='font-bold text-base tracking-tight text-white'>Drivo AI Assistant</h3>
                                 <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                                     isCaptain 
                                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
@@ -203,12 +217,12 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                                             ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                                             : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                                 }`}>
-                                    {isCaptain ? 'Captain AI' : isAdmin ? 'Admin AI' : 'Tribo GenAI'}
+                                    {isCaptain ? 'Captain AI' : isAdmin ? 'Admin AI' : 'Customer AI'}
                                 </span>
                             </div>
                             <p className='text-xs text-slate-400 flex items-center gap-1.5 mt-0.5'>
                                 <span className='inline-block h-1.5 w-1.5 rounded-full bg-emerald-400'></span>
-                                <span>Live Telemetry • Multi-Turn Memory</span>
+                                <span>Live Telemetry • Validated Tool Execution</span>
                             </p>
                         </div>
                     </div>
@@ -232,26 +246,22 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                     </div>
                 </div>
 
-                {/* Compact Quick-Action Carousel (Always visible when conversation is underway) */}
+                {/* Quick-Action Chips Carousel */}
                 {!isInitialState && (
                     <div className='bg-slate-50/95 border-b border-slate-100 px-3 py-2 overflow-x-auto flex gap-1.5 no-scrollbar'>
-                        {activePrompts.slice(0, 5).map((prompt, idx) => {
-                            const IconComp = prompt.icon;
-                            return (
-                                <button
-                                    key={idx}
-                                    onClick={() => handleSend(prompt.label)}
-                                    className={`flex-shrink-0 text-xs font-medium bg-white border rounded-full px-3 py-1 transition-all shadow-xs flex items-center gap-1.5 ${
-                                        isCaptain 
-                                            ? 'hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border-slate-200 hover:border-emerald-300'
-                                            : 'hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border-slate-200 hover:border-indigo-300'
-                                    }`}
-                                >
-                                    <IconComp className={`h-3 w-3 ${isCaptain ? 'text-emerald-600' : 'text-indigo-600'}`} />
-                                    <span>{prompt.label}</span>
-                                </button>
-                            );
-                        })}
+                        {(isCaptain ? CAPTAIN_STARTER_PROMPTS : isAdmin ? ADMIN_STARTER_PROMPTS : CUSTOMER_QUICK_ACTIONS).slice(0, 6).map((prompt, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => handleSend(prompt.query || prompt.label)}
+                                className={`flex-shrink-0 text-xs font-semibold bg-white border rounded-full px-3 py-1.5 transition-all shadow-xs flex items-center gap-1.5 ${
+                                    isCaptain 
+                                        ? 'hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border-slate-200 hover:border-emerald-300'
+                                        : 'hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border-slate-200 hover:border-indigo-300'
+                                }`}
+                            >
+                                <span>{prompt.label}</span>
+                            </button>
+                        ))}
                     </div>
                 )}
 
@@ -262,7 +272,7 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                             key={idx}
                             className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
                         >
-                            <div className='flex items-start gap-2.5 max-w-[92%] sm:max-w-[85%]'>
+                            <div className='flex items-start gap-2.5 max-w-[94%] sm:max-w-[88%]'>
                                 {msg.sender === 'ai' && (
                                     <div className={`h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 text-white shadow-xs ${
                                         isCaptain
@@ -280,13 +290,236 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                                         msg.sender === 'user'
                                             ? isCaptain 
                                                 ? 'bg-emerald-700 text-white rounded-tr-xs' 
-                                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-xs'
+                                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-xs font-medium'
                                             : msg.isError
                                                 ? 'bg-rose-50 text-rose-950 border border-rose-200 rounded-tl-xs'
                                                 : 'bg-white text-slate-800 rounded-tl-xs border border-slate-200/90'
                                     }`}
                                 >
                                     <div className='whitespace-pre-wrap font-normal leading-relaxed'>{msg.text}</div>
+
+                                    {/* ── RICH CARD: Booking Confirmation Summary (Two-Step Flow) ── */}
+                                    {msg.cardType === 'booking_confirmation' && msg.cardData && (
+                                        <div className='mt-3.5 pt-3.5 border-t border-slate-100 bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/60 rounded-2xl p-4 text-xs space-y-3 border border-indigo-100 shadow-sm'>
+                                            <div className='flex items-center justify-between'>
+                                                <span className='font-bold text-indigo-950 flex items-center gap-1.5 text-sm'>
+                                                    <Car className='h-4 w-4 text-indigo-600' /> Trip Confirmation
+                                                </span>
+                                                <span className='bg-indigo-100 text-indigo-800 font-bold px-2.5 py-0.5 rounded-full text-[11px] uppercase tracking-wider'>
+                                                    {msg.cardData.vehicleType === 'moto' ? 'Drivo Moto' : (msg.cardData.vehicleType === 'auto' ? 'Drivo Auto' : 'Drivo Go')}
+                                                </span>
+                                            </div>
+
+                                            {/* Route Display */}
+                                            <div className='bg-white p-3 rounded-xl border border-indigo-100/80 space-y-2'>
+                                                <div className='flex items-start gap-2.5'>
+                                                    <span className='h-2.5 w-2.5 rounded-full bg-emerald-500 mt-1 flex-shrink-0 ring-2 ring-emerald-100'></span>
+                                                    <div>
+                                                        <div className='text-[10px] text-slate-400 uppercase font-bold tracking-wider'>Pickup</div>
+                                                        <div className='font-bold text-slate-900'>{msg.cardData.pickup}</div>
+                                                    </div>
+                                                </div>
+                                                <div className='border-l-2 border-dashed border-slate-200 ml-1.5 h-3'></div>
+                                                <div className='flex items-start gap-2.5'>
+                                                    <span className='h-2.5 w-2.5 rounded-full bg-rose-500 mt-1 flex-shrink-0 ring-2 ring-rose-100'></span>
+                                                    <div>
+                                                        <div className='text-[10px] text-slate-400 uppercase font-bold tracking-wider'>Destination</div>
+                                                        <div className='font-bold text-slate-900'>{msg.cardData.destination}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Fare & Notice */}
+                                            <div className='flex items-center justify-between px-1'>
+                                                <span className='text-slate-600 font-medium'>Estimated Fare:</span>
+                                                <span className='text-lg font-black text-slate-900'>₹{msg.cardData.estimatedFare}</span>
+                                            </div>
+
+                                            {/* Two-step Explicit Confirmation Action Buttons */}
+                                            <div className='grid grid-cols-2 gap-2 pt-1'>
+                                                <button
+                                                    onClick={() => handleSend("Yes, confirm")}
+                                                    className='w-full py-2.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex items-center justify-center gap-1.5'
+                                                >
+                                                    <CheckCircle2 className='h-4 w-4' /> Confirm Booking
+                                                </button>
+                                                <button
+                                                    onClick={() => handleSend("No, don't book")}
+                                                    className='w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-all'
+                                                >
+                                                    Cancel Request
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── RICH CARD: Booking Success ── */}
+                                    {msg.cardType === 'booking_success' && msg.cardData?.ride && (
+                                        <div className='mt-3.5 pt-3.5 border-t border-slate-100 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60 rounded-2xl p-4 text-xs space-y-3 border border-emerald-200 shadow-sm'>
+                                            <div className='flex items-center justify-between'>
+                                                <span className='font-black text-emerald-950 flex items-center gap-1.5 text-sm'>
+                                                    <CheckCircle2 className='h-4 w-4 text-emerald-600' /> Ride Booked Successfully!
+                                                </span>
+                                                <span className='bg-emerald-100 text-emerald-800 font-mono font-bold px-2 py-0.5 rounded-full text-[10px]'>
+                                                    #{msg.cardData.ride._id?.slice(-6).toUpperCase()}
+                                                </span>
+                                            </div>
+
+                                            <div className='bg-white p-3 rounded-xl border border-emerald-100 space-y-1.5 text-slate-700'>
+                                                <div><strong className='text-slate-900'>From:</strong> {msg.cardData.ride.pickup}</div>
+                                                <div><strong className='text-slate-900'>To:</strong> {msg.cardData.ride.destination}</div>
+                                                <div className='flex justify-between items-center pt-1 border-t border-slate-100'>
+                                                    <span>Vehicle: <strong className='text-slate-900'>{msg.cardData.ride.vehicleType?.toUpperCase() || 'DRIVO GO'}</strong></span>
+                                                    <span className='font-bold text-slate-900 text-sm'>₹{msg.cardData.ride.fare}</span>
+                                                </div>
+                                            </div>
+
+                                            {msg.cardData.ride.otp && (
+                                                <div className='bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-center justify-between'>
+                                                    <div className='flex items-center gap-1.5 text-amber-900 font-medium'>
+                                                        <Key className='h-4 w-4 text-amber-600' /> Ride OTP (Share on Boarding):
+                                                    </div>
+                                                    <span className='font-mono font-black text-base tracking-widest text-slate-900 bg-white px-2 py-0.5 rounded border border-amber-300'>
+                                                        {msg.cardData.ride.otp}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            <p className='text-[11px] text-emerald-800 font-medium flex items-center gap-1'>
+                                                <Sparkles className='h-3.5 w-3.5' /> AI driver matching in progress. We're dispatching the nearest Captain!
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* ── RICH CARD: Cancel Confirmation Dialog ── */}
+                                    {msg.cardType === 'cancel_confirmation' && msg.cardData && (
+                                        <div className='mt-3.5 pt-3.5 border-t border-slate-100 bg-gradient-to-br from-rose-50/80 via-white to-amber-50/60 rounded-2xl p-4 text-xs space-y-3 border border-rose-200 shadow-sm'>
+                                            <div className='flex items-center justify-between'>
+                                                <span className='font-bold text-rose-950 flex items-center gap-1.5 text-sm'>
+                                                    <AlertTriangle className='h-4 w-4 text-rose-600' /> Cancel Ride Confirmation
+                                                </span>
+                                                <span className='bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded-full text-[10px] uppercase'>
+                                                    Action Required
+                                                </span>
+                                            </div>
+
+                                            <div className='bg-white p-3 rounded-xl border border-rose-100 space-y-1 text-slate-700'>
+                                                <div><strong>Pickup:</strong> {msg.cardData.pickup}</div>
+                                                <div><strong>Destination:</strong> {msg.cardData.destination}</div>
+                                                <div className='pt-1 text-[11px] font-semibold text-rose-700'>
+                                                    {msg.cardData.feeApplies 
+                                                        ? "⚠️ Notice: A ₹50 driver dispatch compensation fee may apply as travel commenced."
+                                                        : "✅ Free cancellation: You are within the 3-minute grace period (No fee)."}
+                                                </div>
+                                            </div>
+
+                                            <div className='grid grid-cols-2 gap-2 pt-1'>
+                                                <button
+                                                    onClick={() => handleSend("Yes, cancel")}
+                                                    className='w-full py-2.5 px-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md shadow-rose-600/20 active:scale-95 transition-all'
+                                                >
+                                                    Yes, Cancel Ride
+                                                </button>
+                                                <button
+                                                    onClick={() => handleSend("Keep my ride")}
+                                                    className='w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition-all'
+                                                >
+                                                    Keep My Ride
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── RICH CARD: Cancel Success ── */}
+                                    {msg.cardType === 'cancel_success' && msg.cardData && (
+                                        <div className='mt-3.5 pt-3.5 border-t border-slate-100 bg-slate-100 rounded-2xl p-4 text-xs space-y-2 border border-slate-200'>
+                                            <div className='flex items-center justify-between font-bold text-slate-900'>
+                                                <span className='flex items-center gap-1.5 text-rose-600'>
+                                                    <Ban className='h-4 w-4' /> Ride Cancelled
+                                                </span>
+                                                <span className='bg-slate-200 text-slate-800 px-2 py-0.5 rounded font-mono text-[10px]'>
+                                                    #{msg.cardData.rideId?.slice(-6).toUpperCase()}
+                                                </span>
+                                            </div>
+                                            <p className='text-slate-600 leading-relaxed'>
+                                                {msg.cardData.cancellationFee > 0
+                                                    ? `Applied fee: ₹${msg.cardData.cancellationFee}. Receipt sent to your account.`
+                                                    : 'No cancellation fee applied. You can request another ride anytime.'}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* ── RICH CARD: Available Ride Options ── */}
+                                    {msg.cardType === 'ride_options' && msg.cardData?.options && (
+                                        <div className='mt-3.5 pt-3.5 border-t border-slate-100 space-y-2'>
+                                            <div className='text-xs font-bold text-slate-900 mb-1 flex items-center gap-1.5'>
+                                                <Car className='h-4 w-4 text-indigo-600' /> Drivo Fleet Categories
+                                            </div>
+                                            <div className='grid grid-cols-1 gap-2'>
+                                                {msg.cardData.options.map((opt, oIdx) => (
+                                                    <div 
+                                                        key={oIdx} 
+                                                        className='bg-white p-3 rounded-xl border border-slate-200 hover:border-indigo-400 transition-all shadow-xs flex items-center justify-between'
+                                                    >
+                                                        <div>
+                                                            <div className='font-bold text-slate-900 text-xs flex items-center gap-1.5'>
+                                                                {opt.name}
+                                                                <span className='text-[10px] text-slate-400 font-normal'>• Seats {opt.capacity}</span>
+                                                            </div>
+                                                            <div className='text-[11px] text-slate-500 mt-0.5'>{opt.description}</div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleSend(`Book a ${opt.name}`)}
+                                                            className='text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1'
+                                                        >
+                                                            <span>Book</span>
+                                                            <ArrowRight className='h-3 w-3' />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── RICH CARD: Contact Support ── */}
+                                    {msg.cardType === 'contact_support' && (
+                                        <div className='mt-3.5 pt-3.5 border-t border-slate-100 bg-indigo-50/60 rounded-2xl p-4 text-xs space-y-3 border border-indigo-100'>
+                                            <div className='flex items-center justify-between font-bold text-indigo-950'>
+                                                <span className='flex items-center gap-1.5 text-sm'>
+                                                    <Shield className='h-4 w-4 text-indigo-600' /> Drivo 24/7 Helpline
+                                                </span>
+                                                <span className='bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[10px]'>
+                                                    Active 24x7
+                                                </span>
+                                            </div>
+                                            <div className='grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1'>
+                                                <a 
+                                                    href='tel:18003748672'
+                                                    className='p-2.5 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors flex items-center gap-2.5'
+                                                >
+                                                    <div className='h-8 w-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0'>
+                                                        <PhoneCall className='h-4 w-4' />
+                                                    </div>
+                                                    <div>
+                                                        <div className='font-bold text-slate-900 text-xs'>Toll-Free</div>
+                                                        <div className='text-[10px] text-slate-500'>1800-DRIVO-SAFE</div>
+                                                    </div>
+                                                </a>
+                                                <a 
+                                                    href='mailto:support@drivo.com'
+                                                    className='p-2.5 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors flex items-center gap-2.5'
+                                                >
+                                                    <div className='h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0'>
+                                                        <Mail className='h-4 w-4' />
+                                                    </div>
+                                                    <div>
+                                                        <div className='font-bold text-slate-900 text-xs'>Email Support</div>
+                                                        <div className='text-[10px] text-slate-500'>support@drivo.com</div>
+                                                    </div>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* ── Rider Card: Driver Location ── */}
                                     {msg.cardType === 'driver_location' && msg.cardData && (
@@ -360,40 +593,6 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                                                     <span>Trip duration to drop:</span>
                                                     <span className='font-semibold text-slate-800'>~{msg.cardData.eta.tripDurationMinutes || 12} mins</span>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* ── Rider Card: Fare Explanation ── */}
-                                    {msg.cardType === 'fare_explanation' && msg.cardData && (
-                                        <div className='mt-3 pt-3 border-t border-slate-100 bg-amber-50/60 rounded-xl p-3.5 text-xs space-y-2 border border-amber-200/60'>
-                                            <div className='flex items-center justify-between font-bold text-amber-950'>
-                                                <span className='flex items-center gap-1'>
-                                                    <DollarSign className='h-3.5 w-3.5 text-amber-600' /> Transparent Fare Math
-                                                </span>
-                                                <span className='text-xs font-black text-amber-900 bg-amber-200/80 px-2.5 py-0.5 rounded-full'>
-                                                    ₹{msg.cardData.finalFare}
-                                                </span>
-                                            </div>
-                                            <div className='space-y-1 text-slate-700'>
-                                                <div className='flex justify-between'>
-                                                    <span>Base Fare:</span>
-                                                    <span className='font-semibold'>₹{msg.cardData.baseFare}</span>
-                                                </div>
-                                                <div className='flex justify-between'>
-                                                    <span>Distance ({msg.cardData.distanceKm} km):</span>
-                                                    <span className='font-semibold'>₹{msg.cardData.distanceCharge}</span>
-                                                </div>
-                                                <div className='flex justify-between'>
-                                                    <span>Duration ({msg.cardData.durationMinutes} mins):</span>
-                                                    <span className='font-semibold'>₹{msg.cardData.durationCharge}</span>
-                                                </div>
-                                                {msg.cardData.surgeMultiplier > 1.0 && (
-                                                    <div className='flex justify-between pt-1 border-t border-amber-200 text-amber-900 font-bold'>
-                                                        <span>Surge Multiplier:</span>
-                                                        <span>{msg.cardData.surgeMultiplier}x ({msg.cardData.surgeReason})</span>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     )}
@@ -516,7 +715,7 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                                             {msg.toolCalls.map((tc, tcIdx) => (
                                                 <span key={tcIdx} className='inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-mono border border-slate-200'>
                                                     <CheckCircle2 className='h-2.5 w-2.5 text-emerald-500' />
-                                                    Live Tool: {tc.tool}()
+                                                    Validated Tool: {tc.tool}()
                                                 </span>
                                             ))}
                                         </div>
@@ -535,11 +734,11 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                                         </div>
                                     )}
 
-                                    {/* Source & Telemetry Attribution */}
+                                    {/* Source Attribution */}
                                     {msg.source && (
                                         <div className='mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400'>
                                             <span className={`flex items-center gap-1 font-medium ${isAdmin ? 'text-amber-700' : isCaptain ? 'text-emerald-700' : 'text-indigo-600'}`}>
-                                                <Sparkles className='h-3 w-3' /> Live GenAI + RAG
+                                                <Sparkles className='h-3 w-3' /> Live Drivo AI + RAG
                                             </span>
                                             <span className='font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500'>
                                                 {msg.source}
@@ -552,20 +751,19 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                         </div>
                     ))}
 
-                    {/* Starter Prompts Empty State Grid (Prominent when conversation is fresh) */}
+                    {/* Starter Prompts Empty State Grid */}
                     {isInitialState && (
                         <div className='mt-4 pt-2'>
                             <p className='text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1'>
-                                Frequently Asked Questions
+                                Instant Actions & Questions
                             </p>
                             <div className='grid grid-cols-1 sm:grid-cols-2 gap-2.5'>
-                                {activePrompts.map((p, pIdx) => {
-                                    const IconComp = p.icon;
+                                {(isCaptain ? CAPTAIN_STARTER_PROMPTS : isAdmin ? ADMIN_STARTER_PROMPTS : CUSTOMER_QUICK_ACTIONS).map((p, pIdx) => {
                                     return (
                                         <button
                                             key={pIdx}
-                                            onClick={() => handleSend(p.label)}
-                                            className={`p-3 rounded-2xl bg-white border border-slate-200/80 hover:border-indigo-400 hover:shadow-md transition-all text-left flex items-start gap-3 group ${
+                                            onClick={() => handleSend(p.query || p.label)}
+                                            className={`p-3.5 rounded-2xl bg-white border border-slate-200/80 hover:border-indigo-400 hover:shadow-md transition-all text-left flex items-start gap-3 group ${
                                                 isCaptain ? 'hover:border-emerald-400' : ''
                                             }`}
                                         >
@@ -574,10 +772,10 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                                                     ? 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors' 
                                                     : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors'
                                             }`}>
-                                                <IconComp className='h-4 w-4' />
+                                                <Car className='h-4 w-4' />
                                             </div>
                                             <div>
-                                                <h4 className='font-semibold text-xs text-slate-900 group-hover:text-indigo-600 transition-colors'>
+                                                <h4 className='font-bold text-xs text-slate-900 group-hover:text-indigo-600 transition-colors'>
                                                     {p.label}
                                                 </h4>
                                                 <p className='text-[11px] text-slate-500 mt-0.5'>
@@ -608,7 +806,7 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                                     <span className='h-2 w-2 rounded-full bg-indigo-600 animate-bounce' style={{ animationDelay: '300ms' }}></span>
                                 </div>
                                 <span className='text-xs text-slate-500 font-medium'>
-                                    Zen is querying live trip telemetry & policy base...
+                                    Drivo Assistant is evaluating backend tools & live telemetry...
                                 </span>
                             </div>
                         </div>
@@ -645,8 +843,8 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 placeholder={isCaptain 
-                                    ? 'Ask Zen: "Where is my rider?", "Today\'s earnings?", "My acceptance rate"...'
-                                    : 'Ask Zen: "Where is my driver?", "What\'s my ETA?", "How do I cancel?"...'
+                                    ? 'Ask Captain Assistant: "Where is my rider?", "Today\'s earnings?"...'
+                                    : 'Ask Drivo: "Book a ride from A to B", "Where is my driver?", "Cancel my ride"...'
                                 }
                                 className={`w-full bg-slate-50 border text-sm rounded-2xl pl-4 pr-10 py-3.5 outline-none transition-all placeholder:text-slate-400 ${
                                     isCaptain 
@@ -679,8 +877,8 @@ const SupportAssistantModal = ({ isOpen, onClose, userType = 'user' }) => {
                         </button>
                     </form>
                     <div className='flex items-center justify-between text-[10px] text-slate-400 mt-2 px-1'>
-                        <span>Powered by Tribo GenAI & Live Telemetry Tools</span>
-                        <span>Zero arbitrary DB access • Isolated Tenant Auth</span>
+                        <span>Drivo AI • Validated Tool Execution & Live Telemetry</span>
+                        <span>Zero arbitrary queries • Isolated Tenant Identity</span>
                     </div>
                 </div>
             </div>

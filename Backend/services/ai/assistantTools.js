@@ -20,6 +20,11 @@ const aiRiskLogModel = require('../../models/aiRiskLog.model');
 const demandPredictionService = require('../demandPredictionService');
 const repositioningService = require('../driverRepositioningService');
 const etaService = require('../etaService');
+const rideService = require('../ride.service');
+const mapService = require('../maps.service');
+const driverMatchingService = require('../driverMatchingService');
+const anomalyDetectionService = require('./anomalyDetectionService');
+const { sendMessageToUser, broadcastToAdmin } = require('../../socket');
 
 const isValidObjectId = (id) => {
     if (!id) return false;
@@ -995,31 +1000,638 @@ async function getUserProfile(authContext = {}) {
     return { success: false, error: 'Authentication required to view profile.' };
 }
 
+/**
+ * Searches available ride categories (Drivo Go, Drivo Auto, Drivo Moto) with fare estimates and arrival ETAs.
+ */
+async function searchRideOptions(params = {}, authContext = {}) {
+    const pickup = (params.pickup || '').trim();
+    const destination = (params.destination || '').trim();
+
+    if (!pickup || !destination) {
+        return {
+            success: true,
+            pickup: null,
+            destination: null,
+            trafficCondition: 'Normal Flow',
+            estimatedEtaMinutes: 5,
+            surgeMultiplier: 1.0,
+            options: [
+                {
+                    type: 'car',
+                    name: 'Drivo Go',
+                    label: 'Drivo Go (Car)',
+                    fare: 185,
+                    baseFare: 185,
+                    etaMinutes: 4,
+                    capacity: 4,
+                    description: 'Comfortable, air-conditioned compact cars',
+                    image: 'https://swyft.pl/wp-content/uploads/2023/05/how-many-people-can-a-uberx-take.jpg'
+                },
+                {
+                    type: 'auto',
+                    name: 'Drivo Auto',
+                    label: 'Drivo Auto (Rickshaw)',
+                    fare: 120,
+                    baseFare: 120,
+                    etaMinutes: 3,
+                    capacity: 3,
+                    description: 'Reliable three-wheeler auto rickshaw',
+                    image: '/Uber_Auto.png'
+                },
+                {
+                    type: 'moto',
+                    name: 'Drivo Moto',
+                    label: 'Drivo Moto (Motorcycle)',
+                    fare: 85,
+                    baseFare: 85,
+                    etaMinutes: 2,
+                    capacity: 1,
+                    description: 'Fast, solo motorcycle ride to beat city traffic',
+                    image: '/Uber_Moto.webp'
+                }
+            ]
+        };
+    }
+
+    try {
+        let fareData;
+        try {
+            fareData = await rideService.getFare(pickup, destination);
+        } catch (fareErr) {
+            fareData = { auto: 120, car: 185, moto: 85 };
+        }
+
+        let estimatedEtaMinutes = 15;
+        let trafficCondition = 'Normal Flow';
+        try {
+            const etaInfo = await etaService.predictPreBookingETA({ pickup, destination, vehicleType: 'car' });
+            if (etaInfo?.estimatedMinutes) estimatedEtaMinutes = etaInfo.estimatedMinutes;
+            if (etaInfo?.trafficCondition) trafficCondition = etaInfo.trafficCondition;
+        } catch (e) {}
+
+        let surgeMultiplier = 1.0;
+        let surgeReason = null;
+        try {
+            let coords = { ltd: 22.3375, lng: 87.3242 };
+            try { coords = await mapService.getAddressCoordinate(pickup); } catch (e) {}
+            const nearestZone = demandPredictionService.findNearestZone(coords);
+            const zonePrediction = await demandPredictionService.predictZoneDemand(nearestZone);
+            if (zonePrediction?.surgeMultiplier > 1.0) {
+                surgeMultiplier = zonePrediction.surgeMultiplier;
+                surgeReason = `Surge multiplier of ${surgeMultiplier}x applied due to elevated demand in ${zonePrediction.area}.`;
+            }
+        } catch (e) {}
+
+        const options = [
+            {
+                type: 'car',
+                name: 'Drivo Go',
+                label: 'Drivo Go (Car)',
+                fare: Math.round((fareData.car || 185) * surgeMultiplier),
+                baseFare: fareData.car || 185,
+                etaMinutes: Math.max(3, estimatedEtaMinutes),
+                capacity: 4,
+                description: 'Comfortable, air-conditioned compact cars',
+                image: 'https://swyft.pl/wp-content/uploads/2023/05/how-many-people-can-a-uberx-take.jpg'
+            },
+            {
+                type: 'auto',
+                name: 'Drivo Auto',
+                label: 'Drivo Auto (Rickshaw)',
+                fare: Math.round((fareData.auto || 120) * surgeMultiplier),
+                baseFare: fareData.auto || 120,
+                etaMinutes: Math.max(2, estimatedEtaMinutes - 2),
+                capacity: 3,
+                description: 'Reliable three-wheeler auto rickshaw',
+                image: '/Uber_Auto.png'
+            },
+            {
+                type: 'moto',
+                name: 'Drivo Moto',
+                label: 'Drivo Moto (Motorcycle)',
+                fare: Math.round((fareData.moto || 85) * surgeMultiplier),
+                baseFare: fareData.moto || 85,
+                etaMinutes: Math.max(2, estimatedEtaMinutes - 4),
+                capacity: 1,
+                description: 'Fast, solo motorcycle ride to beat city traffic',
+                image: '/Uber_Moto.webp'
+            }
+        ];
+
+        return {
+            success: true,
+            pickup,
+            destination,
+            trafficCondition,
+            estimatedEtaMinutes,
+            surgeMultiplier,
+            surgeReason,
+            options
+        };
+    } catch (err) {
+        return {
+            success: false,
+            error: `Failed to search ride options: ${err.message}`
+        };
+    }
+}
+
+/**
+ * Calculates estimated fare breakdown for a specific route and vehicle type.
+ */
+async function estimateFare(params = {}, authContext = {}) {
+    const pickup = (params.pickup || '').trim();
+    const destination = (params.destination || '').trim();
+    const vehicleType = (params.vehicleType || 'car').toLowerCase();
+
+    if (!pickup || !destination) {
+        return {
+            success: false,
+            error: 'Pickup and destination are required to calculate a fare estimate.',
+            missingFields: [!pickup ? 'pickup' : null, !destination ? 'destination' : null].filter(Boolean)
+        };
+    }
+
+    const optionsRes = await searchRideOptions({ pickup, destination }, authContext);
+    if (!optionsRes.success) return optionsRes;
+
+    const selectedOption = optionsRes.options.find(o => o.type === vehicleType) || optionsRes.options[0];
+
+    return {
+        success: true,
+        pickup,
+        destination,
+        vehicleType: selectedOption.type,
+        vehicleName: selectedOption.name,
+        estimatedFare: selectedOption.fare,
+        baseFare: selectedOption.baseFare,
+        surgeMultiplier: optionsRes.surgeMultiplier,
+        etaMinutes: selectedOption.etaMinutes,
+        allOptions: optionsRes.options
+    };
+}
+
+/**
+ * Books a ride with mandatory two-step confirmation.
+ */
+async function bookRide(params = {}, authContext = {}) {
+    const userId = authContext.userId;
+    if (!userId || !isValidObjectId(userId)) {
+        return {
+            success: false,
+            error: 'Authentication required. Please sign in to your Drivo account to book a ride.'
+        };
+    }
+
+    const pickup = (params.pickup || '').trim();
+    const destination = (params.destination || '').trim();
+    const vehicleType = (params.vehicleType || 'car').toLowerCase();
+    const confirmed = params.confirmed === true;
+
+    if (!pickup || !destination) {
+        return {
+            success: false,
+            error: 'Both pickup address and destination are required to book a ride.',
+            missingFields: [!pickup ? 'pickup' : null, !destination ? 'destination' : null].filter(Boolean)
+        };
+    }
+
+    // Guard against booking multiple rides concurrently
+    if (isDbConnected()) {
+        const existingRide = await rideModel.findOne({
+            user: userId,
+            status: { $in: ['pending', 'accepted', 'ongoing', 'payment-pending'] }
+        });
+        if (existingRide) {
+            return {
+                success: false,
+                hasActiveRide: true,
+                existingRideId: existingRide._id.toString(),
+                status: existingRide.status,
+                error: `You already have an active ride (${existingRide.status}) from ${existingRide.pickup} to ${existingRide.destination}. Please track or cancel your existing ride before booking another.`
+            };
+        }
+    }
+
+    const fareRes = await estimateFare({ pickup, destination, vehicleType }, authContext);
+    const estimatedFare = fareRes.success ? fareRes.estimatedFare : 185;
+    const vehicleName = fareRes.success ? fareRes.vehicleName : 'Drivo Go';
+
+    // REQUIRE EXPLICIT CONFIRMATION
+    if (!confirmed) {
+        return {
+            success: true,
+            requiresConfirmation: true,
+            pickup,
+            destination,
+            vehicleType,
+            vehicleName,
+            estimatedFare,
+            message: `You're booking a Drivo ride from ${pickup} to ${destination} via ${vehicleName}. Estimated fare: ₹${estimatedFare}. Would you like me to confirm the booking?`
+        };
+    }
+
+    if (!isDbConnected()) {
+        return {
+            success: false,
+            error: 'Database connection is currently offline. Please try again shortly.'
+        };
+    }
+
+    try {
+        const ride = await rideService.createRide({
+            user: userId,
+            pickup,
+            destination,
+            vehicleType
+        });
+
+        // 1. AI ETA Prediction
+        let aiEta = null;
+        try {
+            aiEta = await etaService.predictPreBookingETA({ pickup, destination, vehicleType });
+            ride.aiEstimatedDuration = (aiEta.estimatedMinutes || 15) * 60;
+        } catch (etaErr) {}
+
+        // 2. Geocode Pickup Location
+        let pickupCoordinates = { ltd: 22.3375, lng: 87.3242 };
+        try {
+            pickupCoordinates = await mapService.getAddressCoordinate(pickup);
+            ride.originCoordinates = pickupCoordinates;
+        } catch (geoErr) {}
+
+        // 3. Surge Multiplier
+        try {
+            const nearestZone = demandPredictionService.findNearestZone(pickupCoordinates);
+            const zonePrediction = await demandPredictionService.predictZoneDemand(nearestZone);
+            const surgeMultiplier = zonePrediction.surgeMultiplier || 1.0;
+            if (surgeMultiplier > 1.0) {
+                ride.fare = Math.round(ride.fare * surgeMultiplier);
+                ride.surgeMultiplier = surgeMultiplier;
+                ride.surgeReason = `Surge multiplier ${surgeMultiplier}x applied due to elevated demand near ${zonePrediction.area}.`;
+            }
+        } catch (surgeErr) {}
+
+        // 4. Candidate Captains & Matching
+        const busyCaptainIds = await rideModel.find({
+            status: { $in: ['accepted', 'ongoing', 'payment-pending'] }
+        }).distinct('captain');
+        const busySet = new Set(busyCaptainIds.map(id => id ? id.toString() : ''));
+
+        let captainsInRadius = await mapService.getCaptainsInTheRadius(pickupCoordinates.ltd, pickupCoordinates.lng, 100);
+        let availableCaptains = captainsInRadius.filter(c => !busySet.has(c._id.toString()) && c.status === 'active');
+        if (availableCaptains.length === 0) {
+            const allActive = await captainModel.find({ status: 'active' });
+            availableCaptains = allActive.filter(c => !busySet.has(c._id.toString()));
+        }
+        if (availableCaptains.length === 0) {
+            const allCaptains = await captainModel.find({});
+            availableCaptains = allCaptains.filter(c => !busySet.has(c._id.toString()));
+        }
+
+        const rankedCaptains = driverMatchingService.rankDrivers(
+            pickupCoordinates,
+            availableCaptains,
+            { vehicleType, pickup, destination }
+        );
+
+        const topRank = rankedCaptains[0];
+        if (topRank) {
+            ride.aiMatchScore = topRank.matchScore;
+            ride.matchFactors = {
+                proximityScore: topRank.breakdown?.proximityScore || 85,
+                etaScore: topRank.breakdown?.etaScore || 80,
+                ratingScore: topRank.breakdown?.ratingScore || 90,
+                acceptanceScore: topRank.breakdown?.acceptanceScore || 92,
+                reliabilityScore: topRank.breakdown?.reliabilityScore || 95,
+                vehicleScore: topRank.breakdown?.vehicleScore || 100,
+                reason: topRank.explanation || `Selected captain with score ${topRank.matchScore}/100.`
+            };
+        }
+
+        // Anomaly Evaluation
+        try {
+            const riskEval = await anomalyDetectionService.evaluateRideRisk(ride, { recentRequestsInWindow: 1 });
+            ride.riskScore = riskEval.riskScore;
+            ride.riskLevel = riskEval.riskLevel;
+            ride.riskReasons = riskEval.reasons.map(r => r.code);
+        } catch (e) {}
+
+        await ride.save();
+
+        // Broadcast to ranked captains
+        ride.otp = "";
+        const rideWithUser = await rideModel.findOne({ _id: ride._id }).populate('user');
+        rankedCaptains.forEach(rankedItem => {
+            const captainId = rankedItem.driverId || rankedItem.driver?._id;
+            if (captainId) {
+                sendMessageToUser(captainId, {
+                    event: 'new-ride',
+                    data: {
+                        ...rideWithUser.toObject(),
+                        aiMatch: {
+                            score: rankedItem.matchScore,
+                            pickupEtaMinutes: rankedItem.pickupEtaMinutes,
+                            distanceKm: rankedItem.distanceKm,
+                            rank: rankedItem.rank,
+                            explanation: rankedItem.explanation
+                        }
+                    }
+                });
+            }
+        });
+
+        // Notify user socket
+        sendMessageToUser(userId, {
+            event: 'ride-created',
+            data: ride.toObject()
+        });
+
+        return {
+            success: true,
+            booked: true,
+            rideId: ride._id.toString(),
+            status: 'pending',
+            pickup: ride.pickup,
+            destination: ride.destination,
+            fare: ride.fare,
+            vehicleType,
+            vehicleName,
+            otp: rideWithUser?.otp || 'Generated',
+            aiMatchScore: topRank?.matchScore || null,
+            message: `Your Drivo ride from ${pickup} to ${destination} has been booked! Searching for nearby captains now.`
+        };
+    } catch (err) {
+        console.error('bookRide tool error:', err);
+        return {
+            success: false,
+            error: `Booking failed: ${err.message}`
+        };
+    }
+}
+
+/**
+ * Cancels a ride with mandatory two-step confirmation.
+ */
+async function cancelRide(params = {}, authContext = {}) {
+    const userId = authContext.userId;
+    const captainId = authContext.captainId;
+
+    if (!userId && !captainId) {
+        return {
+            success: false,
+            error: 'Authentication required to cancel a ride.'
+        };
+    }
+
+    if (!params.confirmed) {
+        return {
+            success: false,
+            error: 'Confirmation required: Explicit user confirmation is required to cancel a ride.'
+        };
+    }
+
+    if (!isDbConnected()) {
+        return {
+            success: false,
+            error: 'Database connection offline. Please try again shortly.'
+        };
+    }
+
+    let rideId = params.rideId;
+    let ride = null;
+
+    if (rideId && isValidObjectId(rideId)) {
+        ride = await rideModel.findById(rideId).populate('user').populate('captain');
+    } else if (userId) {
+        ride = await rideModel.findOne({
+            user: userId,
+            status: { $in: ['pending', 'accepted', 'ongoing', 'payment-pending'] }
+        }).populate('user').populate('captain').sort({ createdAt: -1 });
+    } else if (captainId) {
+        ride = await rideModel.findOne({
+            captain: captainId,
+            status: { $in: ['accepted', 'ongoing'] }
+        }).populate('user').populate('captain').sort({ createdAt: -1 });
+    }
+
+    if (!ride) {
+        return {
+            success: false,
+            error: 'No active ride found to cancel.'
+        };
+    }
+
+    // Verify ownership
+    const isUser = userId && ride.user && ride.user._id.toString() === userId.toString();
+    const isCaptain = captainId && ride.captain && ride.captain._id.toString() === captainId.toString();
+
+    if (!isUser && !isCaptain) {
+        return {
+            success: false,
+            error: 'Unauthorized: You can only cancel your own rides.'
+        };
+    }
+
+    if (ride.status === 'completed' || ride.status === 'cancelled') {
+        return {
+            success: false,
+            error: `Ride is already ${ride.status}.`
+        };
+    }
+
+    const createdAtTime = new Date(ride.createdAt).getTime();
+    const minutesElapsed = (Date.now() - createdAtTime) / (1000 * 60);
+    const cancellationFee = minutesElapsed > 3 && isUser ? 50 : 0;
+
+    // REQUIRE EXPLICIT CONFIRMATION
+    if (!params.confirmed) {
+        return {
+            success: true,
+            requiresConfirmation: true,
+            rideId: ride._id.toString(),
+            pickup: ride.pickup,
+            destination: ride.destination,
+            status: ride.status,
+            fare: ride.fare,
+            cancellationFee,
+            freeWindowRemaining: Math.max(0, Math.round(3 - minutesElapsed)),
+            message: `Are you sure you want to cancel your ride from ${ride.pickup} to ${ride.destination}? ${cancellationFee > 0 ? 'A cancellation fee of ₹50 will apply.' : 'Free cancellation applies.'} Please confirm to proceed.`
+        };
+    }
+
+    // CONFIRMED: Execute cancellation
+    const cancelledBy = isUser ? 'user' : 'captain';
+    ride.status = 'cancelled';
+    ride.cancellationReason = params.reason || `${cancelledBy === 'user' ? 'Passenger' : 'Driver'} cancelled via Drivo AI Assistant`;
+    ride.cancelledBy = cancelledBy;
+    await ride.save();
+
+    if (isCaptain && ride.captain) {
+        const captain = await captainModel.findById(ride.captain._id);
+        if (captain) {
+            captain.cancellationRate = Math.min(100, Math.round(((captain.cancellationRate || 3) * 0.9) + 10));
+            await captain.save();
+        }
+    }
+
+    if (isUser && ride.captain) {
+        sendMessageToUser(ride.captain._id, {
+            event: 'ride-cancelled',
+            data: { rideId: ride._id, reason: ride.cancellationReason, cancelledBy }
+        });
+    } else if (isCaptain && ride.user) {
+        sendMessageToUser(ride.user._id, {
+            event: 'ride-cancelled',
+            data: { rideId: ride._id, reason: ride.cancellationReason, cancelledBy }
+        });
+    }
+
+    if (isUser && ride.user) {
+        sendMessageToUser(ride.user._id, {
+            event: 'ride-cancelled',
+            data: { rideId: ride._id, reason: ride.cancellationReason, cancelledBy }
+        });
+    }
+
+    broadcastToAdmin('ride-cancelled', {
+        rideId: ride._id,
+        reason: ride.cancellationReason,
+        cancelledBy,
+        fare: ride.fare
+    });
+
+    return {
+        success: true,
+        cancelled: true,
+        rideId: ride._id.toString(),
+        status: 'cancelled',
+        message: 'Your Drivo ride has been successfully cancelled.'
+    };
+}
+
+/**
+ * Updates the destination for an active ride.
+ */
+async function updateDestination(params = {}, authContext = {}) {
+    const userId = authContext.userId;
+    if (!userId) {
+        return { success: false, error: 'Authentication required to update destination.' };
+    }
+
+    const newDestination = (params.destination || '').trim();
+    if (!newDestination) {
+        return { success: false, error: 'New destination address is required.' };
+    }
+
+    if (!isDbConnected()) {
+        return { success: false, error: 'Database connection offline.' };
+    }
+
+    const ride = await rideModel.findOne({
+        user: userId,
+        status: { $in: ['pending', 'accepted', 'ongoing'] }
+    }).populate('captain');
+
+    if (!ride) {
+        return {
+            success: false,
+            error: `You do not have an active ride in progress. Would you like to book a new ride to ${newDestination}?`
+        };
+    }
+
+    let newFare;
+    try {
+        const fareData = await rideService.getFare(ride.pickup, newDestination);
+        newFare = fareData[ride.vehicleType || 'car'] || Math.round(ride.fare * 1.1);
+    } catch (e) {
+        newFare = ride.fare;
+    }
+
+    if (!params.confirmed) {
+        return {
+            success: true,
+            requiresConfirmation: true,
+            rideId: ride._id.toString(),
+            oldDestination: ride.destination,
+            newDestination,
+            oldFare: ride.fare,
+            newFare,
+            message: `Do you want to update your destination to ${newDestination}? Recalculated fare: ₹${newFare}. Please confirm to proceed.`
+        };
+    }
+
+    ride.destination = newDestination;
+    ride.fare = newFare;
+    await ride.save();
+
+    if (ride.captain) {
+        sendMessageToUser(ride.captain._id, {
+            event: 'destination-updated',
+            data: { rideId: ride._id, destination: newDestination, fare: newFare }
+        });
+    }
+
+    return {
+        success: true,
+        updated: true,
+        rideId: ride._id.toString(),
+        pickup: ride.pickup,
+        destination: newDestination,
+        fare: newFare,
+        message: `Destination successfully updated to ${newDestination}. Updated fare: ₹${newFare}.`
+    };
+}
+
+/**
+ * Retrieves official Drivo support contact channels.
+ */
+async function contactSupport(params = {}, authContext = {}) {
+    return {
+        success: true,
+        channels: {
+            inAppChat: 'Available 24/7 in Drivo App',
+            email: 'support@drivo.com',
+            phone: '1800-DRIVO-SAFE (1800-37486-7233)',
+            emergencySos: 'Immediate Police & Ambulance relay available on active trip screen',
+            hours: '24 hours / 7 days a week'
+        },
+        message: "You can reach Drivo Support anytime via email at support@drivo.com or call our toll-free safety hotline at 1800-DRIVO-SAFE (1800-37486-7233). For active emergency assistance, tap the SOS button on your ride screen."
+    };
+}
+
 module.exports = {
-    // Rider tools
+    // Core Rider Tools (Required by AI Assistant)
+    searchRideOptions,
+    estimateFare,
+    bookRide,
+    cancelRide,
     getCurrentRide,
+    getRideStatus,
+    getRideHistory,
+    getRideDetails,
+    getUserProfile,
+    updateDestination,
+    contactSupport,
+    // Supporting Rider & Telemetry Tools
     getCurrentDriver,
     getDriverDetails,
     getDriverLocation,
     getTripETA,
     getRideETA,
-    getRideDetails,
-    getRideHistory,
     getRideFare,
     getSurgeDetails,
     getCancellationDetails,
     getPaymentDetails,
     getPaymentHistory,
-    getUserProfile,
-    getRideStatus,
-    // Driver tools
+    // Driver Tools
     getCurrentRider,
     getDriverEarnings,
     getDriverRating,
     getDriverStats,
     getNearbyDemandZones,
     getDemandHotspots,
-    // Admin tools
+    // Admin Tools
     getAdminAnalytics,
     getActiveRides,
     getRideAnomalies

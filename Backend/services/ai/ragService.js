@@ -213,66 +213,66 @@ const KNOWLEDGE_DOCUMENTS = [
         chunks: [
             {
                 chunkId: 'support-01',
-                content: "AI Support Assistant Zen: Zen is available 24/7 in the Tribo (Drivo) app to answer fare questions, locate your driver, explain surge fees, assist with cancellations, or look up trip receipts."
+                content: "AI Support Assistant: The Drivo AI Copilot is available 24/7 in the Drivo app to answer fare questions, locate your driver, explain surge fees, assist with cancellations, or look up trip receipts."
             },
             {
                 chunkId: 'support-02',
-                content: "Human Agent Escalation: Unresolved disputes or complex billing inquiries can be escalated directly to human support specialists via email at support@tribo.com or support@drivo.com."
+                content: "Human Agent Escalation: Unresolved disputes or complex billing inquiries can be escalated directly to human support specialists via email at support@drivo.com or call 1800-DRIVO-SAFE."
             }
         ]
     },
     {
-        documentId: 'tribo-overview-and-booking-guide',
-        title: 'Tribo Platform Overview & Ride Booking Guide',
+        documentId: 'drivo-overview-and-booking-guide',
+        title: 'Drivo Platform Overview & Ride Booking Guide',
         category: 'general_help',
-        source: 'Tribo Help Center - Getting Started Guide',
+        source: 'Drivo Help Center - Getting Started Guide',
         updatedAt: '2026-09-01T00:00:00.000Z',
         chunks: [
             {
                 chunkId: 'overview-01',
-                content: "How Tribo Works: Tribo is a next-generation urban mobility platform that connects passengers with nearby verified drivers in real time using AI-optimized matching, live GPS telemetry, dynamic route optimization, and upfront transparent fares."
+                content: "How Drivo Works: Drivo is a next-generation urban mobility platform that connects passengers with nearby verified drivers in real time using AI-optimized matching, live GPS telemetry, dynamic route optimization, and upfront transparent fares."
             },
             {
                 chunkId: 'overview-02',
-                content: "How to Book a Ride: 1. Enter your pickup address and destination on the map. 2. Select your preferred ride category: TriboGo (comfortable 4-seater car), TriboMoto (fast, affordable motorcycle), or TriboAuto (reliable 3-wheeler rickshaw). 3. Review the upfront fare and estimated arrival time. 4. Tap 'Book Ride'. 5. Once a driver accepts, share your secure 4-digit OTP upon pickup to start the journey."
+                content: "How to Book a Ride: 1. Enter your pickup address and destination on the map. 2. Select your preferred ride category: Drivo Go (comfortable 4-seater car), Drivo Moto (fast, affordable motorcycle), or Drivo Auto (reliable 3-wheeler rickshaw). 3. Review the upfront fare and estimated arrival time. 4. Tap 'Book Ride'. 5. Once a driver accepts, share your secure 6-digit OTP upon pickup to start the journey."
             },
             {
                 chunkId: 'overview-03',
-                content: "Vehicle Categories: TriboGo offers air-conditioned cars for up to 4 passengers. TriboMoto is designed for solo commuters looking for quick and budget-friendly trips. TriboAuto offers convenient auto-rickshaw rides for daily city commutes."
+                content: "Vehicle Categories: Drivo Go offers air-conditioned cars for up to 4 passengers. Drivo Moto is designed for solo commuters looking for quick and budget-friendly trips. Drivo Auto offers convenient auto-rickshaw rides for daily city commutes."
             }
         ]
     },
     {
-        documentId: 'tribo-account-and-safety-faq',
-        title: 'Tribo Account Help & Profile Management',
+        documentId: 'drivo-account-and-safety-faq',
+        title: 'Drivo Account Help & Profile Management',
         category: 'account_help',
-        source: 'Tribo Customer Protection & Account Services',
+        source: 'Drivo Customer Protection & Account Services',
         updatedAt: '2026-09-01T00:00:00.000Z',
         chunks: [
             {
                 chunkId: 'account-01',
-                content: "Account Management: You can manage your profile, view previous trip history, check payment receipts, and update your personal details securely from the Tribo navigation bar."
+                content: "Account Management: You can manage your profile, view previous trip history, check payment receipts, and update your personal details securely from the Drivo navigation bar."
             },
             {
                 chunkId: 'account-02',
-                content: "Safety Protocols: All Tribo captains undergo rigorous identity and vehicle verification. Every trip features an encrypted OTP handshake, live GPS tracking shareable with family, and a 24/7 emergency support helpline."
+                content: "Safety Protocols: All Drivo captains undergo rigorous identity and vehicle verification. Every trip features an encrypted OTP handshake, live GPS tracking shareable with family, and a 24/7 emergency support helpline."
             }
         ]
     },
     {
-        documentId: 'tribo-terms-and-conditions',
-        title: 'Tribo Terms of Service & Platform Policies',
+        documentId: 'drivo-terms-and-conditions',
+        title: 'Drivo Terms of Service & Platform Policies',
         category: 'terms_and_conditions',
-        source: 'Tribo Legal & Compliance',
+        source: 'Drivo Legal & Compliance',
         updatedAt: '2026-09-01T00:00:00.000Z',
         chunks: [
             {
                 chunkId: 'terms-01',
-                content: "User Agreement: By using Tribo, riders and driver partners agree to maintain professional conduct, verify ride OTPs prior to trip initiation, and adhere to local transit safety regulations."
+                content: "User Agreement: By using Drivo, riders and driver partners agree to maintain professional conduct, verify ride OTPs prior to trip initiation, and adhere to local transit safety regulations."
             },
             {
                 chunkId: 'terms-02',
-                content: "Zero Tolerance Policy: Tribo enforces a strict zero-tolerance policy against harassment, discrimination, or reckless driving. Violations result in immediate account suspension."
+                content: "Zero Tolerance Policy: Drivo enforces a strict zero-tolerance policy against harassment, discrimination, or reckless driving. Violations result in immediate account suspension."
             }
         ]
     }

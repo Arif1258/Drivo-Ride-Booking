@@ -292,10 +292,10 @@ const CaptainHome = () => {
             <div className='fixed p-4 sm:p-6 top-0 flex items-center justify-between w-screen z-25 pointer-events-none'>
                 <div className='flex items-center gap-2 sm:gap-3 pointer-events-auto'>
                     <div className='h-10 w-10 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20'>
-                        <span className='font-black text-xl text-white'>T</span>
+                        <span className='font-black text-xl text-white'>D</span>
                     </div>
                     <span className='hidden sm:inline font-bold text-xs tracking-tight text-white/90 bg-slate-900/80 px-2.5 py-1 rounded-full border border-white/10'>
-                        Tribo Captain
+                        Drivo Captain
                     </span>
                     <button
                         onClick={toggleStatus}
@@ -486,14 +486,14 @@ const CaptainHome = () => {
             <button
                 onClick={() => setSupportOpen(true)}
                 className='fixed bottom-6 right-6 z-40 h-14 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-full shadow-2xl shadow-emerald-500/40 flex items-center gap-2.5 hover:scale-105 active:scale-95 transition-all group ring-4 ring-slate-900/90'
-                aria-label="Open Zen Captain AI Copilot"
+                aria-label="Open Drivo Captain AI Copilot"
             >
                 <div className='relative'>
                     <Bot className='h-6 w-6 text-white group-hover:rotate-12 transition-transform' />
                     <span className='absolute -top-1 -right-1 h-3 w-3 bg-cyan-300 rounded-full border-2 border-emerald-600 animate-pulse'></span>
                 </div>
                 <div className='text-left hidden sm:block pr-1'>
-                    <div className='text-xs font-black tracking-tight leading-none'>Zen Copilot</div>
+                    <div className='text-xs font-black tracking-tight leading-none'>Drivo Copilot</div>
                     <div className='text-[10px] text-emerald-200 font-medium leading-tight'>Driver AI & Shift Stats</div>
                 </div>
             </button>

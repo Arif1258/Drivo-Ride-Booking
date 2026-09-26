@@ -10,7 +10,7 @@ const VehiclePanel = (props) => {
             <h3 className='text-2xl font-black text-gray-900 tracking-tight mb-5'>Choose a Ride</h3>
             
             <div className='space-y-3'>
-                {/* TriboGo (Car) Option */}
+                {/* Drivo Go (Car) Option */}
                 <div 
                     onClick={() => {
                         props.setConfirmRidePanel(true);
@@ -22,13 +22,13 @@ const VehiclePanel = (props) => {
                         <img className='h-12 w-16 object-contain' src="https://swyft.pl/wp-content/uploads/2023/05/how-many-people-can-a-uberx-take.jpg" alt="Car" />
                         <div>
                             <h4 className='font-bold text-sm text-gray-800 flex items-center gap-1.5'>
-                                TriboGo 
+                                Drivo Go 
                                 <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-semibold'>
                                     <User className='h-3 w-3' /> 4
                                 </span>
                             </h4>
                             <h5 className='font-semibold text-xs text-blue-600 flex items-center gap-1 mt-0.5'><Clock className='h-3 w-3' /> 2 mins away</h5>
-                            <p className='font-medium text-[11px] text-gray-550 mt-0.5'>Affordable, compact rides</p>
+                            <p className='font-medium text-[11px] text-slate-500 mt-0.5'>Affordable, compact rides</p>
                         </div>
                     </div>
                     <div className='text-right flex items-center gap-2'>
@@ -37,7 +37,7 @@ const VehiclePanel = (props) => {
                     </div>
                 </div>
 
-                {/* TriboMoto Option */}
+                {/* Drivo Moto Option */}
                 <div 
                     onClick={() => {
                         props.setConfirmRidePanel(true);
@@ -49,13 +49,13 @@ const VehiclePanel = (props) => {
                         <img className='h-12 w-16 object-contain' src="/Uber_Moto.webp" alt="Moto" />
                         <div>
                             <h4 className='font-bold text-sm text-gray-800 flex items-center gap-1.5'>
-                                TriboMoto 
+                                Drivo Moto 
                                 <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-semibold'>
                                     <User className='h-3 w-3' /> 1
                                 </span>
                             </h4>
                             <h5 className='font-semibold text-xs text-blue-600 flex items-center gap-1 mt-0.5'><Clock className='h-3 w-3' /> 3 mins away</h5>
-                            <p className='font-medium text-[11px] text-gray-550 mt-0.5'>Affordable motorcycle rides</p>
+                            <p className='font-medium text-[11px] text-slate-500 mt-0.5'>Affordable motorcycle rides</p>
                         </div>
                     </div>
                     <div className='text-right flex items-center gap-2'>
@@ -64,7 +64,7 @@ const VehiclePanel = (props) => {
                     </div>
                 </div>
 
-                {/* TriboAuto Option */}
+                {/* Drivo Auto Option */}
                 <div 
                     onClick={() => {
                         props.setConfirmRidePanel(true);
@@ -76,13 +76,13 @@ const VehiclePanel = (props) => {
                         <img className='h-12 w-16 object-contain' src="/Uber_Auto.png" alt="Auto" />
                         <div>
                             <h4 className='font-bold text-sm text-gray-800 flex items-center gap-1.5'>
-                                TriboAuto 
+                                Drivo Auto 
                                 <span className='inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-semibold'>
                                     <User className='h-3 w-3' /> 3
                                 </span>
                             </h4>
                             <h5 className='font-semibold text-xs text-blue-600 flex items-center gap-1 mt-0.5'><Clock className='h-3 w-3' /> 3 mins away</h5>
-                            <p className='font-medium text-[11px] text-gray-550 mt-0.5'>Affordable local auto rides</p>
+                            <p className='font-medium text-[11px] text-slate-500 mt-0.5'>Affordable local auto rides</p>
                         </div>
                     </div>
                     <div className='text-right flex items-center gap-2'>

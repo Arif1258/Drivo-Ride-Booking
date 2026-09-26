@@ -14,11 +14,11 @@ const Start = () => {
       <header className='w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between z-10'>
         <div className='flex items-center gap-3'>
           <div className='h-11 w-11 bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25 ring-2 ring-white/10'>
-            <span className='font-black text-2xl tracking-tighter text-white'>T</span>
+            <span className='font-black text-2xl tracking-tighter text-white'>D</span>
           </div>
           <div>
-            <span className='text-2xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent'>Tribo</span>
-            <span className='text-[10px] text-blue-400 font-bold block -mt-1 tracking-wider uppercase'>Urban Mobility</span>
+            <span className='text-2xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent'>Drivo</span>
+            <span className='text-[10px] text-blue-400 font-bold block -mt-1 tracking-wider uppercase'>Intelligent Mobility</span>
           </div>
         </div>
         <div className='flex items-center gap-3'>
@@ -56,7 +56,7 @@ const Start = () => {
           </h1>
           
           <p className='text-slate-400 text-lg sm:text-xl font-normal max-w-lg leading-relaxed'>
-            Tribo brings intelligent route optimization, upfront transparent fares, live driver tracking, and 24/7 AI-powered assistance to every trip.
+            Drivo brings intelligent route optimization, upfront transparent fares, live driver tracking, and 24/7 AI-powered assistance to every trip.
           </p>
 
           {/* Core Action Cards */}
@@ -75,7 +75,7 @@ const Start = () => {
             <Link to='/captain-login' className='group relative flex items-center justify-between p-5 bg-slate-900/80 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-2xl transition-all hover:scale-[1.02] shadow-2xl backdrop-blur-md'>
               <div>
                 <span className='text-[10px] font-bold text-emerald-400 uppercase tracking-widest block mb-0.5'>Captain</span>
-                <h3 className='font-bold text-lg text-slate-100'>Drive with Tribo</h3>
+                <h3 className='font-bold text-lg text-slate-100'>Drive with Drivo</h3>
                 <p className='text-xs text-slate-400 mt-0.5'>Highest payouts & daily bonuses</p>
               </div>
               <div className='h-11 w-11 bg-slate-800 rounded-xl flex items-center justify-center group-hover:bg-emerald-600 transition-colors border border-slate-700 flex-shrink-0'>
@@ -118,7 +118,7 @@ const Start = () => {
             <div className='flex justify-between items-start'>
               <div>
                 <span className='text-[10px] text-blue-400 font-bold uppercase tracking-widest'>Intelligence Engine</span>
-                <h4 className='text-2xl font-black mt-1 text-white'>Tribo Telemetry</h4>
+                <h4 className='text-2xl font-black mt-1 text-white'>Drivo Telemetry</h4>
               </div>
               <div className='h-9 w-9 bg-blue-500/10 text-blue-400 rounded-xl flex items-center justify-center border border-blue-500/20'>
                 <Zap className='h-4 w-4' />
@@ -130,7 +130,7 @@ const Start = () => {
               {[
                 { title: "Dynamic Route Optimizer", desc: "Real-time traffic adjusted navigation", icon: MapPin, color: "text-emerald-400" },
                 { title: "24/7 Security Layers", desc: "Encrypted OTP confirmation handshake", icon: Shield, color: "text-blue-400" },
-                { title: "Zen AI Copilot", desc: "Natural language tool calling assistant", icon: Sparkles, color: "text-purple-400" },
+                { title: "Drivo AI Copilot", desc: "Natural language tool calling assistant", icon: Sparkles, color: "text-purple-400" },
                 { title: "Real-time Telemetry", desc: "Sub-second live driver GPS sync", icon: Clock, color: "text-amber-400" }
               ].map((item, idx) => (
                 <div key={idx} className='flex items-center gap-3.5 p-3.5 bg-white/5 rounded-2xl border border-white/5 hover:border-white/15 transition-all hover:translate-x-1'>
@@ -166,7 +166,7 @@ const Start = () => {
 
       {/* Footer */}
       <footer className='w-full max-w-7xl mx-auto px-6 py-6 border-t border-white/5 z-10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4'>
-        <p>© 2026 Tribo Inc. All rights reserved.</p>
+        <p>© 2026 Drivo Inc. All rights reserved.</p>
         <div className='flex gap-6'>
           <a href="#" className='hover:text-slate-300 transition-colors'>Safety & Guidelines</a>
           <a href="#" className='hover:text-slate-300 transition-colors'>Privacy Policy</a>

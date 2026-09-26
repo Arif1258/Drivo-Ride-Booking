@@ -202,7 +202,7 @@ module.exports.supportChat = async (req, res) => {
             answer: orchestratorResult.answer,
             text: orchestratorResult.answer,
             confidence: 0.98,
-            source: orchestratorResult.sources?.[0]?.title || 'Tribo AI Assistant',
+            source: orchestratorResult.sources?.[0]?.title || 'Drivo AI Assistant',
             sources: orchestratorResult.sources || [],
             toolCalls: orchestratorResult.toolCalls || [],
             cardType: orchestratorResult.cardType || null,

@@ -81,7 +81,7 @@ const ConfirmRidePopUp = (props) => {
                     </div>
                     
                     <div className='flex items-start gap-4 p-2 hover:bg-gray-50 rounded-xl transition-colors'>
-                        <div className='h-8 w-8 bg-yellow-550/10 text-yellow-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5'>
+                        <div className='h-8 w-8 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5'>
                             <Coins className='h-4 w-4' />
                         </div>
                         <div>
@@ -99,7 +99,7 @@ const ConfirmRidePopUp = (props) => {
                                 value={otp} 
                                 onChange={(e) => setOtp(e.target.value)} 
                                 type="text" 
-                                className='w-full px-6 py-4 font-mono text-center text-2xl tracking-widest bg-gray-50 border border-gray-250 rounded-xl focus:border-black focus:bg-white transition-all outline-none font-bold placeholder:text-sm placeholder:tracking-normal placeholder:font-sans' 
+                                className='w-full px-6 py-4 font-mono text-center text-2xl tracking-widest bg-gray-50 border border-slate-300 rounded-xl focus:border-black focus:bg-white transition-all outline-none font-bold placeholder:text-sm placeholder:tracking-normal placeholder:font-sans' 
                                 placeholder='Enter 6-digit OTP' 
                                 required
                             />

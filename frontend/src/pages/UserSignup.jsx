@@ -65,9 +65,9 @@ const UserSignup = () => {
       <div className='hidden lg:flex lg:w-1/2 bg-slate-900/40 border-r border-white/5 p-12 flex-col justify-between relative'>
         <div className='flex items-center gap-3 z-10'>
           <div className='h-10 w-10 bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20'>
-            <span className='font-black text-xl text-white'>T</span>
+            <span className='font-black text-xl text-white'>D</span>
           </div>
-          <span className='text-xl font-bold tracking-tight text-white'>Tribo</span>
+          <span className='text-xl font-bold tracking-tight text-white'>Drivo</span>
         </div>
 
         <div className='space-y-6 max-w-md z-10'>
@@ -78,12 +78,12 @@ const UserSignup = () => {
             Seamless city travel <br />at your fingertips.
           </h2>
           <p className='text-slate-400 leading-relaxed'>
-            Enter your pickup, choose your ride, and let Tribo compute the fastest route and fairest price options instantly.
+            Enter your pickup, choose your ride, and let Drivo compute the fastest route and fairest price options instantly.
           </p>
         </div>
 
         <div className='text-xs text-slate-500 z-10'>
-          © 2026 Tribo Inc. All rights reserved.
+          © 2026 Drivo Inc. All rights reserved.
         </div>
       </div>
 
@@ -94,9 +94,9 @@ const UserSignup = () => {
           <div className='flex items-center justify-between lg:hidden'>
             <div className='flex items-center gap-2'>
               <div className='h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center'>
-                <span className='font-black text-base text-white'>T</span>
+                <span className='font-black text-base text-white'>D</span>
               </div>
-              <span className='text-base font-bold tracking-tight'>Tribo</span>
+              <span className='text-base font-bold tracking-tight'>Drivo</span>
             </div>
             <Link to='/' className='text-xs text-slate-400 hover:text-slate-200 transition-colors'>Cancel</Link>
           </div>

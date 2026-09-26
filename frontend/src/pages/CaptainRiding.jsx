@@ -57,10 +57,13 @@ const CaptainRiding = () => {
     return (
         <div className='h-screen relative overflow-hidden flex flex-col'>
 
-            <div className='fixed p-6 top-0 flex items-center justify-between w-screen z-10'>
-                <img className='w-16' src="/drivo_captain.png" alt="" />
-                <Link to='/captain-home' className=' h-10 w-10 bg-white flex items-center justify-center rounded-full'>
-                    <i className="text-lg font-medium ri-logout-box-r-line"></i>
+            <div className='fixed p-4 top-0 flex items-center justify-between w-screen z-10 pointer-events-none'>
+                <div className='pointer-events-auto h-10 px-3 bg-slate-900/90 backdrop-blur border border-white/20 text-white rounded-xl flex items-center gap-2 shadow-lg'>
+                    <div className='h-6 w-6 bg-emerald-600 rounded-md flex items-center justify-center font-black text-xs text-white'>D</div>
+                    <span className='text-xs font-bold'>Drivo Captain</span>
+                </div>
+                <Link to='/captain-home' className='pointer-events-auto h-10 w-10 bg-white/90 backdrop-blur shadow-md flex items-center justify-center rounded-full hover:bg-white transition-all'>
+                    <i className="text-lg font-medium ri-logout-box-r-line text-slate-700"></i>
                 </Link>
             </div>
 
@@ -74,15 +77,20 @@ const CaptainRiding = () => {
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className='flex-1 bg-yellow-400 flex flex-col'
+                className='flex-1 bg-slate-900 text-white rounded-t-3xl shadow-2xl flex flex-col justify-between cursor-pointer border-t border-slate-800'
                 onClick={() => setFinishRidePanel(true)}
             >
-                <div className='w-12 h-1.5 bg-yellow-600 rounded-full mx-auto mt-3 mb-1 cursor-grab'
+                <div className='w-12 h-1.5 bg-slate-700 rounded-full mx-auto mt-3 mb-1 cursor-grab'
                     onClick={e => e.stopPropagation()}
                 ></div>
                 <div className='p-6 flex items-center justify-between'>
-                    <h4 className='text-xl font-semibold'>{'4 KM away'}</h4>
-                    <button className=' bg-green-600 text-white font-semibold p-3 px-10 rounded-lg'>Complete Ride</button>
+                    <div>
+                        <span className='text-[10px] uppercase font-bold tracking-wider text-emerald-400 block'>In Transit</span>
+                        <h4 className='text-xl font-bold text-white'>{rideData?.destination ? 'Approaching Destination' : '4 KM away'}</h4>
+                    </div>
+                    <button className='bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-7 rounded-xl shadow-lg shadow-emerald-950/20 transition-all'>
+                        Complete Ride
+                    </button>
                 </div>
             </div>
 

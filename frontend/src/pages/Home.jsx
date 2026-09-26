@@ -344,10 +344,10 @@ const Home = () => {
             {/* Header: Brand & Navigation */}
             <div className='absolute left-6 top-6 z-25 flex items-center gap-3 pointer-events-none'>
                 <div className='h-11 w-11 bg-gradient-to-tr from-slate-900 to-indigo-950 border border-white/20 text-white rounded-2xl flex items-center justify-center shadow-2xl pointer-events-auto backdrop-blur-md'>
-                    <span className='font-black text-2xl tracking-tighter text-white'>T</span>
+                    <span className='font-black text-2xl tracking-tighter text-white'>D</span>
                 </div>
                 <div className='hidden sm:flex items-center gap-2 bg-slate-900/90 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg text-xs font-bold pointer-events-auto'>
-                    <span className='tracking-tight'>Tribo</span>
+                    <span className='tracking-tight'>Drivo</span>
                     {aiEtaInfo && (
                         <>
                             <span className='h-3 w-px bg-white/20'></span>
@@ -366,7 +366,7 @@ const Home = () => {
                     title="AI Support Assistant"
                 >
                     <Bot className='h-4 w-4' />
-                    <span className='hidden sm:inline'>Zen Copilot</span>
+                    <span className='hidden sm:inline'>Drivo AI</span>
                 </button>
                 <Link to='/payments' className='h-11 w-11 bg-white/95 backdrop-blur-md shadow-xl border border-slate-200/80 flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all text-slate-800 hover:text-indigo-600' title="Payment History">
                     <History className='h-5 w-5' />
@@ -525,15 +525,15 @@ const Home = () => {
             <button
                 onClick={() => setSupportOpen(true)}
                 className='fixed bottom-6 right-6 z-40 h-14 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-2xl shadow-indigo-500/40 flex items-center gap-2.5 hover:scale-105 active:scale-95 transition-all group ring-4 ring-white/90'
-                aria-label="Open Zen AI Assistant"
+                aria-label="Open Drivo AI Assistant"
             >
                 <div className='relative'>
                     <Bot className='h-6 w-6 text-white group-hover:rotate-12 transition-transform' />
                     <span className='absolute -top-1 -right-1 h-3 w-3 bg-emerald-400 rounded-full border-2 border-indigo-600 animate-pulse'></span>
                 </div>
                 <div className='text-left hidden sm:block pr-1'>
-                    <div className='text-xs font-black tracking-tight leading-none'>Zen Copilot</div>
-                    <div className='text-[10px] text-indigo-200 font-medium leading-tight'>Ask ETA & live fare</div>
+                    <div className='text-xs font-black tracking-tight leading-none'>Drivo AI</div>
+                    <div className='text-[10px] text-indigo-200 font-medium leading-tight'>Book & Track Live</div>
                 </div>
             </button>
 
@@ -542,6 +542,23 @@ const Home = () => {
                 isOpen={supportOpen}
                 onClose={() => setSupportOpen(false)}
                 userType="user"
+                onRideCreated={(newRide) => {
+                    setRide(newRide);
+                    if (newRide.pickup) setPickup(newRide.pickup);
+                    if (newRide.destination) setDestination(newRide.destination);
+                    if (newRide.vehicleType) setVehicleType(newRide.vehicleType);
+                    setVehiclePanel(false);
+                    setConfirmRidePanel(false);
+                    setVehicleFound(true);
+                    setWaitingForDriver(false);
+                }}
+                onRideCancelled={() => {
+                    setRide(null);
+                    setVehicleFound(false);
+                    setWaitingForDriver(false);
+                    setConfirmRidePanel(false);
+                    setVehiclePanel(false);
+                }}
             />
         </div>
     );

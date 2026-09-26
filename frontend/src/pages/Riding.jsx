@@ -12,7 +12,7 @@ const Riding = () => {
     const navigate = useNavigate();
 
     const [ride, setRide] = useState(initialRide);
-    const [isZenOpen, setIsZenOpen] = useState(false);
+    const [isAiAssistantOpen, setIsAiAssistantOpen] = useState(false);
     const [showPayment, setShowPayment] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('card');
     const [paymentStatus, setPaymentStatus] = useState('idle'); // 'idle' | 'processing' | 'success' | 'failed'
@@ -160,12 +160,12 @@ const Riding = () => {
                     <i className="text-xl font-semibold ri-home-5-line"></i>
                 </Link>
                 <button
-                    onClick={() => setIsZenOpen(true)}
+                    onClick={() => setIsAiAssistantOpen(true)}
                     className='fixed right-4 top-18 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl flex items-center gap-1.5 px-3 py-2 rounded-full z-50 hover:scale-105 transition-all text-xs font-bold border border-white/20'
-                    title="Ask Zen AI Assistant"
+                    title="Ask Drivo AI Assistant"
                 >
                     <i className="ri-robot-2-line text-base"></i>
-                    <span>Ask Zen</span>
+                    <span>Drivo AI</span>
                 </button>
             </div>
 
@@ -465,8 +465,8 @@ const Riding = () => {
             )}
 
             <SupportAssistantModal
-                isOpen={isZenOpen}
-                onClose={() => setIsZenOpen(false)}
+                isOpen={isAiAssistantOpen}
+                onClose={() => setIsAiAssistantOpen(false)}
                 userType='user'
             />
         </div>

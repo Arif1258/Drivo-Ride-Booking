@@ -112,7 +112,7 @@ const WaitingForDriver = (props) => {
           </div>
           
           <div className='flex items-start gap-4 p-3 hover:bg-gray-50 rounded-xl transition-colors'>
-            <div className='h-8 w-8 bg-yellow-550/10 text-yellow-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5'>
+            <div className='h-8 w-8 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5'>
               <Coins className='h-4 w-4' />
             </div>
             <div>

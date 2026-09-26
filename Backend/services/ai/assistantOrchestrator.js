@@ -1,11 +1,11 @@
 /**
- * Production GenAI + Tool Calling + RAG Customer Assistant Orchestrator for Tribo
+ * Production GenAI + Tool Calling + RAG Customer Assistant Orchestrator for Drivo
  * 
  * Capabilities:
  * 1. Native Generative AI with Tool / Function Calling (OpenAI & Google Gemini)
  * 2. Multi-turn Conversational Memory & Context-Aware Pronoun/Reference Resolution
  * 3. Live Data Grounding: Strictly uses backend tools; never invents live data
- * 4. Grounded RAG Knowledge Base Retrieval for Tribo policies, FAQs, and guidelines
+ * 4. Grounded RAG Knowledge Base Retrieval for Drivo policies, FAQs, and guidelines
  * 5. Hybrid Intelligence: Intelligently routes between Live Data, RAG, and Blended synthesis
  * 6. Action Safety: Confirmation guidance for destructive operations (e.g., cancellations)
  * 7. Strict Tenant Isolation & Security: Derives identity strictly from verified token authContext
@@ -20,8 +20,47 @@ const { searchKnowledgeBase, formatRAGContext, extractSourceCitations } = requir
 
 const ASSISTANT_TOOL_SCHEMAS = [
     {
+        name: 'searchRideOptions',
+        description: 'Search available Drivo ride options (Drivo Go, Drivo Auto, Drivo Moto) between pickup and destination with upfront fare estimates and arrival ETAs.',
+        parameters: {
+            type: 'object',
+            properties: {
+                pickup: { type: 'string', description: 'Pickup address or landmark' },
+                destination: { type: 'string', description: 'Destination address or landmark' }
+            },
+            required: ['pickup', 'destination']
+        }
+    },
+    {
+        name: 'estimateFare',
+        description: 'Calculate upfront fare estimate and breakdown for a trip route and vehicle type.',
+        parameters: {
+            type: 'object',
+            properties: {
+                pickup: { type: 'string', description: 'Pickup location' },
+                destination: { type: 'string', description: 'Destination address' },
+                vehicleType: { type: 'string', enum: ['car', 'auto', 'moto'], description: 'Vehicle type' }
+            },
+            required: ['pickup', 'destination']
+        }
+    },
+    {
+        name: 'bookRide',
+        description: 'Book a Drivo ride between pickup and destination. Requires explicit customer confirmation before dispatching.',
+        parameters: {
+            type: 'object',
+            properties: {
+                pickup: { type: 'string', description: 'Pickup location' },
+                destination: { type: 'string', description: 'Destination location' },
+                vehicleType: { type: 'string', enum: ['car', 'auto', 'moto'], description: 'Vehicle category' },
+                confirmed: { type: 'boolean', description: 'Set to true when the user explicitly confirms the booking summary' }
+            },
+            required: ['pickup', 'destination']
+        }
+    },
+    {
         name: 'getCurrentRide',
-        description: 'Get the active ride for the authenticated user, including pickup, destination, fare, status, and assigned driver details.',
+        description: 'Get the active ride for the authenticated user, including pickup, destination, fare, status, OTP, and assigned driver details.',
         parameters: { type: 'object', properties: {} }
     },
     {
@@ -42,7 +81,24 @@ const ASSISTANT_TOOL_SCHEMAS = [
     {
         name: 'getRideStatus',
         description: 'Get the current lifecycle status (e.g. pending, accepted, ongoing, completed, cancelled) of the current ride.',
-        parameters: { type: 'object', properties: {} }
+        parameters: {
+            type: 'object',
+            properties: {
+                rideId: { type: 'string', description: 'Optional unique ride ID' }
+            }
+        }
+    },
+    {
+        name: 'cancelRide',
+        description: 'Cancel the active ride with two-step confirmation. Validates free window eligibility and calculates any applicable fee.',
+        parameters: {
+            type: 'object',
+            properties: {
+                rideId: { type: 'string', description: 'Optional ride ID to cancel' },
+                reason: { type: 'string', description: 'Reason for cancellation' },
+                confirmed: { type: 'boolean', description: 'Must be true to execute cancellation; false to request confirmation summary' }
+            }
+        }
     },
     {
         name: 'getRideHistory',
@@ -61,7 +117,8 @@ const ASSISTANT_TOOL_SCHEMAS = [
             type: 'object',
             properties: {
                 rideId: { type: 'string', description: 'The unique ID of the ride' }
-            }
+            },
+            required: ['rideId']
         }
     },
     {
@@ -80,6 +137,28 @@ const ASSISTANT_TOOL_SCHEMAS = [
         parameters: { type: 'object', properties: {} }
     },
     {
+        name: 'updateDestination',
+        description: 'Update the drop-off destination for an active ride and recalculate trip fare.',
+        parameters: {
+            type: 'object',
+            properties: {
+                destination: { type: 'string', description: 'New destination address' },
+                confirmed: { type: 'boolean', description: 'True to commit update' }
+            },
+            required: ['destination']
+        }
+    },
+    {
+        name: 'contactSupport',
+        description: 'Get official 24/7 Drivo Customer Support contact info, telephone helplines, email, and emergency response.',
+        parameters: {
+            type: 'object',
+            properties: {
+                topic: { type: 'string', description: 'Help topic or question' }
+            }
+        }
+    },
+    {
         name: 'getCancellationDetails',
         description: 'Check whether the current active ride can be cancelled for free (within the 3-minute window) or if a fee applies.',
         parameters: { type: 'object', properties: {} }
@@ -96,7 +175,7 @@ const ASSISTANT_TOOL_SCHEMAS = [
     },
     {
         name: 'searchKnowledgeBase',
-        description: 'Search Tribo static policies, FAQs, cancellation rules, refund timelines, payment methods, safety guidelines, and booking instructions.',
+        description: 'Search Drivo static policies, FAQs, cancellation rules, refund timelines, payment methods, safety guidelines, and booking instructions.',
         parameters: {
             type: 'object',
             properties: {
@@ -163,6 +242,10 @@ async function executeSecureTool(toolName, params = {}, authContext = {}) {
             if (toolName === 'getDriverEarnings' || toolName === 'getAdminAnalytics') {
                 return await assistantTools[toolName](params.period || 'today', authContext);
             }
+            if (toolName === 'searchRideOptions' || toolName === 'estimateFare' || toolName === 'bookRide' ||
+                toolName === 'cancelRide' || toolName === 'updateDestination' || toolName === 'contactSupport') {
+                return await assistantTools[toolName](params, authContext);
+            }
             return await assistantTools[toolName](authContext);
         } catch (err) {
             return { success: false, error: err.message };
@@ -173,17 +256,19 @@ async function executeSecureTool(toolName, params = {}, authContext = {}) {
 }
 
 /**
- * Batch execute multiple tools securely.
+ * Batch execute multiple tools securely. Supports both tool name strings and { name, params } objects.
  */
-async function executeAuthorizedTools(toolNames, authContext = {}) {
+async function executeAuthorizedTools(tools, authContext = {}) {
     const executed = [];
     const toolResults = {};
 
-    for (const name of toolNames) {
-        const res = await executeSecureTool(name, {}, authContext);
+    for (const item of tools) {
+        const name = typeof item === 'string' ? item : item.name;
+        const params = typeof item === 'object' && item.params ? item.params : {};
+        const res = await executeSecureTool(name, params, authContext);
         executed.push({
             tool: name,
-            params: {},
+            params,
             result: res
         });
         toolResults[name] = res;
@@ -195,14 +280,60 @@ async function executeAuthorizedTools(toolNames, authContext = {}) {
 // ─── 3. Conversational Context & Follow-up Pronoun Resolution ────────────────
 
 /**
+ * Helper to detect requested vehicle type.
+ */
+function detectVehicleType(text) {
+    const lower = (text || '').toLowerCase();
+    if (lower.includes('moto') || lower.includes('bike') || lower.includes('motorcycle')) return 'moto';
+    if (lower.includes('auto') || lower.includes('rickshaw')) return 'auto';
+    return 'car';
+}
+
+/**
+ * Extracts pickup and destination from user queries like:
+ * "book a ride from Salt Lake to Park Street"
+ * "ride from Salt Lake to Park Street"
+ * "need a ride to the airport"
+ */
+function extractBookingParameters(query) {
+    const q = (query || '').trim();
+    // Pattern: book (me) (a) ride from <pickup> to <destination>
+    const fromToRegex = /(?:book(?:\s+me)?(?:\s+a)?\s+(?:ride|cab)|ride|cab|trip|travel|go|take\s+me)\s+from\s+([^,]+?)\s+to\s+([^.!?]+)/i;
+    const matchFromTo = q.match(fromToRegex);
+    if (matchFromTo) {
+        return {
+            pickup: matchFromTo[1].trim(),
+            destination: matchFromTo[2].trim(),
+            vehicleType: detectVehicleType(q)
+        };
+    }
+
+    // Pattern: book (me) (a) ride to <destination> / need a ride to <destination>
+    const toOnlyRegex = /(?:book(?:\s+me)?(?:\s+a)?\s+(?:ride|cab)|need\s+(?:a\s+)?ride\s+to|ride\s+to|cab\s+to|trip\s+to|go\s+to|take\s+me\s+to)\s+([^.!?]+)/i;
+    const matchTo = q.match(toOnlyRegex);
+    if (matchTo && !q.toLowerCase().includes('from ')) {
+        return {
+            pickup: null,
+            destination: matchTo[1].trim(),
+            vehicleType: detectVehicleType(q)
+        };
+    }
+
+    return null;
+}
+
+/**
  * Analyzes conversation history to understand follow-up references.
  * e.g., "How long will he take?" -> knows "he" refers to driver in active trip.
  * "Can I cancel?" -> knows it refers to active ride cancellation.
+ * "Yes" / "Confirm" -> recognizes booking or cancellation confirmations.
  */
 function resolveConversationalContext(query, history = []) {
-    const q = (query || '').toLowerCase().trim();
+    const raw = (query || '').trim();
+    const q = raw.toLowerCase();
+    const cleanQ = q.replace(/[.,!?;:]/g, ' ').replace(/\s+/g, ' ').trim();
     if (!history || !Array.isArray(history) || history.length === 0) {
-        return { resolvedQuery: q, followUpType: null };
+        return { resolvedQuery: raw, followUpType: null };
     }
 
     // Get last assistant and user messages
@@ -214,22 +345,77 @@ function resolveConversationalContext(query, history = []) {
     const isDriverContext = combinedHistory.includes('driver') || combinedHistory.includes('captain') || combinedHistory.includes('car') || combinedHistory.includes('dzire') || combinedHistory.includes('km away') || combinedHistory.includes('arrival');
     const isRideContext = combinedHistory.includes('ride') || combinedHistory.includes('trip') || combinedHistory.includes('pickup') || combinedHistory.includes('destination');
 
-    let resolvedQuery = q;
+    let resolvedQuery = raw;
     let followUpType = null;
+    let extractedParams = null;
+
+    // Follow-up: Booking Confirmation ("yes", "confirm", "book it", "proceed", "yes please", "confirm booking", "yes confirm")
+    const isAffirmative = /^(yes|confirm|book it|proceed|yes please|confirm booking|yes confirm|please book|book ride|sure|ok|do it)$/i.test(cleanQ);
+    const isCancelAffirmative = /^(yes|confirm|yes cancel|cancel it|confirm cancel|proceed|please cancel|cancel ride)$/i.test(cleanQ);
+
+    const isDeclineBooking = /^(no|don't book|dont book|no don't book|no dont book|cancel|nevermind|stop|not now|no thanks)$/i.test(cleanQ) || 
+        cleanQ.startsWith('no') && (cleanQ.includes('book') || cleanQ.includes('cancel') || cleanQ.length <= 4);
+
+    const isDeclineCancel = /^(no|keep it|keep my ride|don't cancel|dont cancel|no don't cancel|no dont cancel|stop|nevermind)$/i.test(cleanQ) || 
+        cleanQ.includes('keep') || (cleanQ.startsWith('no') && cleanQ.includes('cancel'));
+
+    if (isAffirmative && (lastAssistantMsg.includes('Would you like me to confirm the booking?') || lastAssistantMsg.includes("booking a Drivo ride"))) {
+        // Extract pickup and destination from assistant's summary
+        const summaryMatch = lastAssistantMsg.match(/from\s+([^.]+?)\s+to\s+([^.]+?)\./i);
+        if (summaryMatch) {
+            resolvedQuery = `confirm and book ride from ${summaryMatch[1].trim()} to ${summaryMatch[2].trim()}`;
+            followUpType = 'CONFIRM_BOOKING';
+            extractedParams = {
+                pickup: summaryMatch[1].trim(),
+                destination: summaryMatch[2].trim(),
+                vehicleType: detectVehicleType(lastAssistantMsg)
+            };
+            return { resolvedQuery, followUpType, extractedParams };
+        }
+    }
+
+    // Follow-up: Cancellation Confirmation ("yes", "confirm", "yes cancel", "cancel it", "confirm cancel")
+    if ((isCancelAffirmative || isAffirmative) && (lastAssistantMsg.includes('Are you sure you want to cancel') || lastAssistantMsg.includes('confirm to proceed') || lastAssistantMsg.includes('cancel this ride') || lastAssistantMsg.includes('cancel your active') || lastAssistantMsg.includes('cancel your ride'))) {
+        resolvedQuery = 'confirm cancel my active ride';
+        followUpType = 'CONFIRM_CANCELLATION';
+        return { resolvedQuery, followUpType };
+    }
+
+    // Follow-up: Decline booking or cancellation
+    if (isDeclineBooking && (lastAssistantMsg.includes('Would you like me to confirm the booking?') || lastAssistantMsg.includes('confirm the booking'))) {
+        resolvedQuery = 'cancel booking request';
+        followUpType = 'DECLINE_BOOKING';
+        return { resolvedQuery, followUpType };
+    }
+    if (isDeclineCancel && (lastAssistantMsg.includes('Are you sure you want to cancel') || lastAssistantMsg.includes('cancel this ride') || lastAssistantMsg.includes('cancel your active'))) {
+        resolvedQuery = 'keep active ride do not cancel';
+        followUpType = 'DECLINE_CANCELLATION';
+        return { resolvedQuery, followUpType };
+    }
+
+    // Follow-up: Missing pickup answering ("from Salt Lake", or just "Salt Lake" when asked for pickup)
+    if (lastAssistantMsg.includes('Please tell me your pickup location') || lastAssistantMsg.includes('pickup location?')) {
+        const destMatch = lastAssistantMsg.match(/ride to\s+([^.!?]+)/i);
+        const destination = destMatch ? destMatch[1].trim() : 'destination';
+        const cleanPickup = raw.replace(/^from\s+/i, '').replace(/[.!?]+$/, '').trim();
+        resolvedQuery = `book a ride from ${cleanPickup} to ${destination}`;
+        followUpType = 'SUPPLIED_MISSING_PICKUP';
+        return { resolvedQuery, followUpType };
+    }
 
     // Follow-up: "how long until he gets here", "how long will he take", "when will he arrive"
-    if ((q.includes('how long') || q.includes('when will') || q.includes('how much time')) && 
-        (q.includes('he') || q.includes('him') || q.includes('they') || q.includes('she') || q.includes('arrive') || q.includes('get here') || q.includes('reach'))) {
+    if ((cleanQ.includes('how long') || cleanQ.includes('when will') || cleanQ.includes('how much time')) && 
+        (cleanQ.includes('he') || cleanQ.includes('him') || cleanQ.includes('they') || cleanQ.includes('she') || cleanQ.includes('arrive') || cleanQ.includes('get here') || cleanQ.includes('reach'))) {
         resolvedQuery = 'when will my driver arrive and what is the ETA';
         followUpType = 'DRIVER_ETA_FOLLOWUP';
     } 
     // Follow-up: "is he close", "is he nearby", "where is he"
-    else if ((q.includes('is he') || q.includes('where is he') || q.includes('is he nearby') || q.includes('is he close')) && isDriverContext) {
+    else if ((cleanQ.includes('is he') || cleanQ.includes('where is he') || cleanQ.includes('is he nearby') || cleanQ.includes('is he close')) && isDriverContext) {
         resolvedQuery = 'where is my driver and how far away is he';
         followUpType = 'DRIVER_LOCATION_FOLLOWUP';
     }
     // Follow-up: "can i cancel", "how do i cancel", "what if i cancel"
-    else if ((q === 'can i cancel' || q === 'can i cancel?' || q === 'how do i cancel' || q === 'what happens if i cancel' || q.includes('cancel it')) && (isRideContext || isDriverContext)) {
+    else if ((cleanQ === 'can i cancel' || cleanQ === 'how do i cancel' || cleanQ === 'what happens if i cancel' || cleanQ.includes('cancel it')) && (isRideContext || isDriverContext)) {
         resolvedQuery = 'can I cancel my current ride and what is the cancellation policy';
         followUpType = 'RIDE_CANCEL_FOLLOWUP';
     }
@@ -244,7 +430,9 @@ function resolveConversationalContext(query, history = []) {
  * Preserves strict backward compatibility with unit tests.
  */
 function classifyIntentAndRouting(query, authContext = {}) {
-    const q = (query || '').toLowerCase().trim();
+    const raw = (query || '').trim();
+    const q = raw.toLowerCase().replace(/[.!?]+$/, '').trim();
+    const cleanQ = q.replace(/[.,!?;:]/g, ' ').replace(/\s+/g, ' ').trim();
     const isCaptain = !!authContext.captainId || authContext.role === 'captain';
     const isAdmin = !!authContext.isAdmin || authContext.role === 'admin';
 
@@ -311,7 +499,126 @@ function classifyIntentAndRouting(query, authContext = {}) {
         }
     }
 
-    // 4. Mixed Question: Live Driver Location + Cancellation Policy
+    // 4. Follow-up Confirmations & Declines (Two-step state machine)
+    if (q.startsWith('confirm and book ride from')) {
+        const match = raw.match(/from\s+([^,]+?)\s+to\s+([^.!?]+)/i);
+        const pickup = match ? match[1].trim() : '';
+        const destination = match ? match[2].trim() : '';
+        const vehicleType = detectVehicleType(q);
+        return {
+            intent: 'CONFIRM_BOOKING',
+            requiresLiveData: true,
+            requiresRAG: false,
+            toolsToCall: [{
+                name: 'bookRide',
+                params: { pickup, destination, vehicleType, confirmed: true }
+            }]
+        };
+    }
+
+    if (q === 'confirm cancel my active ride' || q.includes('confirm cancel my active ride')) {
+        return {
+            intent: 'CONFIRM_CANCEL_EXECUTE',
+            requiresLiveData: true,
+            requiresRAG: false,
+            toolsToCall: [{
+                name: 'cancelRide',
+                params: { confirmed: true }
+            }]
+        };
+    }
+
+    if (q === 'cancel booking request' || q.includes('cancel booking request')) {
+        return {
+            intent: 'DECLINE_BOOKING',
+            requiresLiveData: false,
+            requiresRAG: false,
+            toolsToCall: []
+        };
+    }
+
+    if (q === 'keep active ride do not cancel' || q.includes('keep active ride do not cancel')) {
+        return {
+            intent: 'DECLINE_CANCELLATION',
+            requiresLiveData: false,
+            requiresRAG: false,
+            toolsToCall: []
+        };
+    }
+
+    // 5. Booking Intents (Natural language extraction with two-step confirmation requirement)
+    const bookingParams = extractBookingParameters(raw);
+    if (bookingParams) {
+        if (bookingParams.pickup && bookingParams.destination) {
+            return {
+                intent: 'RIDE_BOOKING_PREPARE',
+                requiresLiveData: true,
+                requiresRAG: false,
+                toolsToCall: [
+                    { name: 'estimateFare', params: { pickup: bookingParams.pickup, destination: bookingParams.destination } },
+                    { name: 'searchRideOptions', params: { pickup: bookingParams.pickup, destination: bookingParams.destination } }
+                ],
+                extractedParams: bookingParams
+            };
+        } else if (bookingParams.destination && !bookingParams.pickup) {
+            return {
+                intent: 'RIDE_BOOKING_MISSING_PICKUP',
+                requiresLiveData: false,
+                requiresRAG: false,
+                toolsToCall: [],
+                extractedParams: bookingParams
+            };
+        }
+    }
+
+    if (cleanQ === 'book a ride' || cleanQ === 'i want to book a ride' || cleanQ === 'i want to book another ride' || cleanQ === 'book another ride') {
+        return {
+            intent: 'RIDE_BOOKING_PROMPT',
+            requiresLiveData: false,
+            requiresRAG: false,
+            toolsToCall: []
+        };
+    }
+
+    // 6. Ride Options Search
+    if (q.includes('ride options') || q.includes('available ride options') || q.includes('search ride options') ||
+        q.includes('what are my available ride options') || q.includes('vehicle options') || q.includes('available cabs')) {
+        return {
+            intent: 'SEARCH_RIDE_OPTIONS',
+            requiresLiveData: true,
+            requiresRAG: false,
+            toolsToCall: ['searchRideOptions']
+        };
+    }
+
+    // 7. Update Destination
+    if (q.includes('change my destination') || q.includes('update destination') || q.includes('change destination')) {
+        const destMatch = raw.match(/(?:change(?: my)? destination to|update destination to|change destination to)\s+([^.!?]+)/i);
+        const newDest = destMatch ? destMatch[1].trim() : null;
+        return {
+            intent: 'UPDATE_DESTINATION',
+            requiresLiveData: true,
+            requiresRAG: false,
+            toolsToCall: [{
+                name: 'updateDestination',
+                params: { newDestination: newDest }
+            }]
+        };
+    }
+
+    // 8. Contact Support
+    if (q.includes('contact support') || q.includes('i want to contact support') || q.includes('customer care') || 
+        q.includes('help me with my payment') || q.includes('talk to support') || q.includes('reach support')) {
+        return {
+            intent: 'CONTACT_SUPPORT',
+            requiresLiveData: true,
+            requiresRAG: true,
+            toolsToCall: ['contactSupport'],
+            ragQuery: 'Drivo 24x7 customer support helpline email dispute resolution'
+        };
+    }
+
+    // 9. Mixed Question: Live Driver Location + Cancellation Policy
     if ((q.includes('where is my driver') || q.includes('where\'s my guy') || q.includes('driver location')) && 
         (q.includes('cancel') || q.includes('cancellation'))) {
         return {
@@ -319,11 +626,11 @@ function classifyIntentAndRouting(query, authContext = {}) {
             requiresLiveData: true,
             requiresRAG: true,
             toolsToCall: ['getDriverLocation', 'getCurrentDriver', 'getCurrentRide', 'getCancellationDetails'],
-            ragQuery: 'Tribo ride cancellation policy free window 3 minutes fee waiver'
+            ragQuery: 'Drivo ride cancellation policy free window 3 minutes fee waiver'
         };
     }
 
-    // 5. Rider Driver Location & Arrival (Supports all natural language variations)
+    // 10. Rider Driver Location & Arrival (Supports all natural language variations)
     // "Where is my driver?", "Where's my guy?", "Is my driver nearby?", "How far away is my driver?", "When will my driver arrive?", "How long until he gets here?", "My driver location?"
     if (q.includes('where is my driver') || q.includes('where\'s my guy') || q.includes('my driver location') || 
         q.includes('is my driver nearby') || q.includes('how far away is my driver') || q.includes('how far is my driver') ||
@@ -338,7 +645,7 @@ function classifyIntentAndRouting(query, authContext = {}) {
         };
     }
 
-    // 6. Who is my driver / Driver Details
+    // 11. Who is my driver / Driver Details
     if (q.includes('who is my driver') || q.includes('who is driving') || q.includes('driver details') || 
         q.includes('driver name') || q.includes('driver phone') || q.includes('driver vehicle')) {
         return {
@@ -349,7 +656,7 @@ function classifyIntentAndRouting(query, authContext = {}) {
         };
     }
 
-    // 7. ETA / Arrival Time
+    // 12. ETA / Arrival Time
     if (q.includes('eta') || q.includes('when will') || q.includes('how long') || q.includes('arrival time') || q.includes('reach')) {
         return {
             intent: 'RIDER_TRIP_ETA',
@@ -359,7 +666,7 @@ function classifyIntentAndRouting(query, authContext = {}) {
         };
     }
 
-    // 8. Ride Status
+    // 13. Ride Status
     if (q.includes('ride status') || q.includes('status of my ride') || q.includes('what is my current ride status') || 
         q.includes('status of my current ride') || (q.includes('current') && q.includes('ride') && !q.includes('cancel'))) {
         return {
@@ -370,10 +677,11 @@ function classifyIntentAndRouting(query, authContext = {}) {
         };
     }
 
-    // 9. Ride History & Past Spend
-    if (q.includes('show me my recent rides') || q.includes('recent rides') || q.includes('history') || 
-        q.includes('past rides') || q.includes('previous ride') || q.includes('my rides') || q.includes('last ride')) {
-        if (q.includes('how much did i pay') || q.includes('cost') || q.includes('fare') || q.includes('pay')) {
+    // 14. Ride History & Past Spend
+    if (q.includes('show me my recent rides') || q.includes('show my recent rides') || q.includes('recent rides') || 
+        q.includes('history') || q.includes('past rides') || q.includes('previous ride') || q.includes('my rides') || 
+        q.includes('last ride') || q.includes('how much was my last ride')) {
+        if (q.includes('how much') || q.includes('cost') || q.includes('fare') || q.includes('pay')) {
             return {
                 intent: 'RIDE_HISTORY',
                 requiresLiveData: true,
@@ -389,19 +697,30 @@ function classifyIntentAndRouting(query, authContext = {}) {
         };
     }
 
-    // 10. Cancellation & Eligibility
-    if (q.includes('can i cancel my current ride') || q.includes('can i cancel') || q.includes('cancel my ride') || 
+    // 15. Cancellation Request: Explicit Confirmation Prompt vs Policy Query
+    // Explicit request to cancel active ride
+    if (cleanQ === 'cancel my ride' || cleanQ === 'cancel my current ride' || cleanQ === 'cancel the ride' || cleanQ.startsWith('cancel ride') || cleanQ === 'cancel ride') {
+        return {
+            intent: 'RIDE_CANCELLATION_CONFIRM',
+            requiresLiveData: true,
+            requiresRAG: false,
+            toolsToCall: ['getCurrentRide', 'getCancellationDetails']
+        };
+    }
+
+    // Cancellation policy / eligibility inquiry
+    if (q.includes('can i cancel my current ride') || q.includes('can i cancel') || 
         q.includes('how do i cancel a ride') || q.includes('why was my ride cancelled')) {
         return {
             intent: 'RIDE_CANCELLATION_ACTION',
             requiresLiveData: true,
             requiresRAG: true,
             toolsToCall: ['getCancellationDetails', 'getCurrentRide'],
-            ragQuery: 'Tribo cancellation policy free window 3 minutes fee driver stationary'
+            ragQuery: 'Drivo cancellation policy free window 3 minutes fee driver stationary'
         };
     }
 
-    // 11. Surge & Dynamic Pricing
+    // 16. Surge & Dynamic Pricing
     if (q.includes('surge') || q.includes('why was i charged') || q.includes('why is my fare') || 
         q.includes('why did my last ride cost') || q.includes('explain my fare') || q.includes('charged extra')) {
         return {
@@ -413,9 +732,9 @@ function classifyIntentAndRouting(query, authContext = {}) {
         };
     }
 
-    // 12. Payment History & Methods
+    // 17. Payment History & Methods
     if (q.includes('payment methods') || q.includes('payment options') || q.includes('how can i pay') || 
-        q.includes('do you support upi') || q.includes('cash ride') || q.includes('tribo wallet')) {
+        q.includes('do you support upi') || q.includes('cash ride') || q.includes('wallet')) {
         return {
             intent: 'POLICY_PAYMENTS',
             requiresLiveData: false,
@@ -435,19 +754,7 @@ function classifyIntentAndRouting(query, authContext = {}) {
         };
     }
 
-    // 13. How to Book a Ride & How Tribo Works
-    if (q.includes('how do i book a ride') || q.includes('how to book') || q.includes('how does tribo work') || 
-        q.includes('how does drivo work') || q.includes('how it works') || q.includes('what is tribo')) {
-        return {
-            intent: 'POLICY_HOW_TRIBO_WORKS',
-            requiresLiveData: false,
-            requiresRAG: true,
-            toolsToCall: [],
-            ragQuery: 'How Tribo works ride booking guide TriboGo TriboMoto TriboAuto OTP pickup'
-        };
-    }
-
-    // 14. Pure Policy / RAG Intents
+    // 18. Pure Policy / RAG Intents: Cancellation Policy
     if (q.includes('cancellation policy') || q.includes('cancel policy') || 
         (q.includes('cancel') && (q.includes('fee') || q.includes('rule') || q.includes('penalty')))) {
         return {
@@ -455,7 +762,19 @@ function classifyIntentAndRouting(query, authContext = {}) {
             requiresLiveData: false,
             requiresRAG: true,
             toolsToCall: [],
-            ragQuery: 'cancellation policy free window fee driver cancellation waiver'
+            ragQuery: 'Drivo cancellation policy free window 3 minutes fee driver cancellation waiver'
+        };
+    }
+
+    // 19. How to Book a Ride & How Drivo Works
+    if (q.includes('how do i book a ride') || q.includes('how to book') || q.includes('how does drivo work') || 
+        q.includes('how it works') || q === 'what is drivo' || q === 'what is drivo?' || (q.startsWith('what is drivo') && !q.includes('policy') && !q.includes('fee'))) {
+        return {
+            intent: 'POLICY_HOW_DRIVO_WORKS',
+            requiresLiveData: false,
+            requiresRAG: true,
+            toolsToCall: [],
+            ragQuery: 'How Drivo works ride booking guide Drivo Go Drivo Moto Drivo Auto OTP pickup'
         };
     }
 
@@ -489,7 +808,7 @@ function classifyIntentAndRouting(query, authContext = {}) {
         };
     }
 
-    // 15. General Inquiry fallback
+    // 20. General Inquiry fallback
     return {
         intent: 'GENERAL_INQUIRY',
         requiresLiveData: false,
@@ -518,7 +837,176 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 2. Mixed Query: Live Driver Location + Cancellation Policy
+    // 2. Booking Confirmation & Execution Flow (Two-Step Safety Architecture)
+    if (intent === 'CONFIRM_BOOKING') {
+        const bookRes = toolResults.bookRide;
+        if (!bookRes || !bookRes.success || !bookRes.ride) {
+            return {
+                answer: bookRes?.error || "Unable to complete booking at this time. Please try again or check your network connection.",
+                cardType: null,
+                cardData: null
+            };
+        }
+        const ride = bookRes.ride;
+        const otpStr = ride.otp ? `\n• Ride OTP: ${ride.otp}` : '';
+        const vehicleLabel = ride.vehicleType === 'moto' ? 'Drivo Moto' : (ride.vehicleType === 'auto' ? 'Drivo Auto' : 'Drivo Go');
+        return {
+            answer: `Your Drivo ride has been booked successfully! 🎉\n• Ride ID: #${ride._id}\n• Pickup: ${ride.pickup}\n• Destination: ${ride.destination}\n• Vehicle: ${vehicleLabel}\n• Estimated Fare: ₹${ride.fare}${otpStr}\n• Status: Matching Captain...\n\nWe are currently broadcasting your request to nearby top-rated Drivo Captains.`,
+            cardType: 'booking_success',
+            cardData: { ride }
+        };
+    }
+
+    if (intent === 'DECLINE_BOOKING') {
+        return {
+            answer: "No problem! I have cancelled this booking request. You have not been charged. Let me know whenever you're ready to book another ride with Drivo!",
+            cardType: null,
+            cardData: null
+        };
+    }
+
+    // 3. Natural Language Booking Preparation (Requires Confirmation)
+    if (intent === 'RIDE_BOOKING_PREPARE') {
+        const fareRes = toolResults.estimateFare;
+        const optionsRes = toolResults.searchRideOptions;
+        const params = fareRes || optionsRes || {};
+        const pickup = params.pickup || 'Pickup';
+        const destination = params.destination || 'Destination';
+        const fare = fareRes?.fare || optionsRes?.fare?.car || 250;
+        const vehicleType = fareRes?.vehicleType || 'car';
+        const vehicleLabel = vehicleType === 'moto' ? 'Drivo Moto' : (vehicleType === 'auto' ? 'Drivo Auto' : 'Drivo Go');
+
+        return {
+            answer: `You're booking a Drivo ride from ${pickup} to ${destination}. Estimated fare: ₹${fare} (${vehicleLabel}). Would you like me to confirm the booking?`,
+            cardType: 'booking_confirmation',
+            cardData: {
+                pickup,
+                destination,
+                vehicleType,
+                estimatedFare: fare,
+                options: optionsRes?.options || null
+            }
+        };
+    }
+
+    if (intent === 'RIDE_BOOKING_MISSING_PICKUP') {
+        const dest = cleanQuery.replace(/.*(?:to|ride to|cab to)\s+/i, '').replace(/[.!?]+$/, '') || 'your destination';
+        return {
+            answer: `I'd be glad to help you book a ride to ${dest}! Please tell me your pickup location.`,
+            cardType: null,
+            cardData: null
+        };
+    }
+
+    if (intent === 'RIDE_BOOKING_PROMPT') {
+        return {
+            answer: "I can help you book a Drivo ride! Where would you like to be picked up from, and where are you heading? (e.g., 'Book a ride from Salt Lake to Park Street')",
+            cardType: null,
+            cardData: null
+        };
+    }
+
+    // 4. Cancellation Flow (Two-Step Safety Architecture)
+    if (intent === 'CONFIRM_CANCEL_EXECUTE') {
+        const cancelRes = toolResults.cancelRide;
+        if (!cancelRes || !cancelRes.success) {
+            return {
+                answer: cancelRes?.error || "Unable to cancel the ride. It may have already been completed or cancelled.",
+                cardType: null,
+                cardData: null
+            };
+        }
+        const feeInfo = cancelRes.cancellationFee > 0 
+            ? `A cancellation fee of ₹${cancelRes.cancellationFee} was applied as the driver had already commenced travel.`
+            : "No cancellation fee was charged (cancelled within the free window).";
+        return {
+            answer: `Your Drivo ride #${cancelRes.rideId} has been successfully cancelled.\n\n${feeInfo}`,
+            cardType: 'cancel_success',
+            cardData: cancelRes
+        };
+    }
+
+    if (intent === 'DECLINE_CANCELLATION') {
+        return {
+            answer: "Understood! Your active ride remains ongoing. You can track your driver's live progress anytime.",
+            cardType: null,
+            cardData: null
+        };
+    }
+
+    if (intent === 'RIDE_CANCELLATION_CONFIRM') {
+        const rideRes = toolResults.getCurrentRide;
+        const cancelInfo = toolResults.getCancellationDetails;
+        if (!rideRes || !rideRes.hasActiveRide || !rideRes.ride) {
+            return {
+                answer: "You do not have an active ride right now to cancel. You can book a ride anytime from the Drivo home screen!",
+                cardType: null,
+                cardData: null
+            };
+        }
+        const ride = rideRes.ride;
+        const freeWindow = cancelInfo?.freeCancellationEligible;
+        const feeText = freeWindow 
+            ? "You are within the free 3-minute cancellation window (no fee will be charged)." 
+            : "A standard ₹50 driver dispatch fee may apply as the trip has been active for more than 3 minutes.";
+
+        return {
+            answer: `You're about to cancel your active Drivo ride from ${ride.pickup} to ${ride.destination} (${ride.status.toUpperCase()}).\n\n${feeText}\n\nAre you sure you want to cancel this ride? Please confirm to proceed.`,
+            cardType: 'cancel_confirmation',
+            cardData: {
+                rideId: ride._id,
+                pickup: ride.pickup,
+                destination: ride.destination,
+                status: ride.status,
+                feeApplies: !freeWindow
+            }
+        };
+    }
+
+    // 5. Available Ride Options Search
+    if (intent === 'SEARCH_RIDE_OPTIONS') {
+        const optRes = toolResults.searchRideOptions;
+        const options = optRes?.options || [
+            { id: 'car', name: 'Drivo Go', description: 'Affordable, compact rides for everyday travel', capacity: 4 },
+            { id: 'moto', name: 'Drivo Moto', description: 'Fast, affordable motorcycle rides through traffic', capacity: 1 },
+            { id: 'auto', name: 'Drivo Auto', description: 'Quick, economical three-wheeler city rides', capacity: 3 }
+        ];
+        const listText = options.map(o => `• **${o.name}**: ${o.description} (Seats ${o.capacity})`).join('\n');
+        return {
+            answer: `Available Drivo Ride Options:\n\n${listText}\n\nTo book, simply tell me: "Book a Drivo Go from [pickup] to [destination]".`,
+            cardType: 'ride_options',
+            cardData: { options }
+        };
+    }
+
+    // 6. Update Destination
+    if (intent === 'UPDATE_DESTINATION') {
+        const updateRes = toolResults.updateDestination;
+        if (!updateRes || !updateRes.success) {
+            return {
+                answer: updateRes?.error || "Unable to update destination at this time. Please ensure you have an active ride in progress.",
+                cardType: null,
+                cardData: null
+            };
+        }
+        return {
+            answer: `Destination updated successfully to: ${updateRes.destination}. New estimated fare: ₹${updateRes.fare}. Your driver has been notified of the route update.`,
+            cardType: 'destination_updated',
+            cardData: updateRes
+        };
+    }
+
+    // 7. Contact Support
+    if (intent === 'CONTACT_SUPPORT') {
+        const suppRes = toolResults.contactSupport;
+        return {
+            answer: `Drivo 24/7 Customer Care is here to assist you!\n\n• Helpline: 1800-DRIVO-SAFE (1800-374-8672)\n• Support Email: support@drivo.com\n• Priority Chat: Active\n\nOur team is available round the clock for ride inquiries, payment disputes, lost items, and safety assistance.`,
+            cardType: 'contact_support',
+            cardData: suppRes
+        };
+    }
+
+    // 8. Mixed Query: Live Driver Location + Cancellation Policy
     if (intent === 'MIXED_LOCATION_AND_CANCELLATION') {
         const locRes = toolResults.getDriverLocation || toolResults.getCurrentDriver;
         let locationPart = '';
@@ -543,7 +1031,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 3. Driver Location & ETA
+    // 9. Driver Location & ETA
     if (intent === 'RIDER_CURRENT_DRIVER') {
         const loc = toolResults.getDriverLocation;
         const driverRes = toolResults.getCurrentDriver || toolResults.getDriverDetails;
@@ -590,7 +1078,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 4. Trip ETA
+    // 10. Trip ETA
     if (intent === 'RIDER_TRIP_ETA') {
         const etaRes = toolResults.getTripETA || toolResults.getRideETA;
         if (!etaRes || !etaRes.success || !etaRes.hasActiveRide) {
@@ -614,12 +1102,12 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 5. Ride Status
+    // 11. Ride Status
     if (intent === 'RIDE_STATUS') {
         const statusRes = toolResults.getRideStatus;
         if (!statusRes || !statusRes.success || !statusRes.hasActiveRide) {
             return {
-                answer: statusRes?.message || "You have no active ride at this moment. You can book a ride anytime from the Tribo home screen!",
+                answer: statusRes?.message || "You have no active ride at this moment. You can book a ride anytime from the Drivo home screen!",
                 cardType: null,
                 cardData: null
             };
@@ -631,14 +1119,14 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 6. Ride History & Past Spend
+    // 12. Ride History & Past Spend
     if (intent === 'RIDE_HISTORY') {
         const histRes = toolResults.getRideHistory;
         const payRes = toolResults.getPaymentHistory || toolResults.getPaymentDetails;
 
         if (!histRes || !histRes.success || !histRes.rides?.length) {
             return {
-                answer: "You have no recorded past rides on Tribo. Your completed journeys will appear here automatically.",
+                answer: "You have no recorded past rides on Drivo. Your completed journeys will appear here automatically.",
                 cardType: null,
                 cardData: null
             };
@@ -655,13 +1143,13 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         }
 
         return {
-            answer: `Here are your recent Tribo rides:\n\n${ridesList}${extraPay}`,
+            answer: `Here are your recent Drivo rides:\n\n${ridesList}${extraPay}`,
             cardType: null,
             cardData: null
         };
     }
 
-    // 7. Cancellation Request / In-Flight Cancellation
+    // 13. Cancellation Request / In-Flight Cancellation (Policy check)
     if (intent === 'RIDE_CANCELLATION_ACTION') {
         const cancelInfo = toolResults.getCancellationDetails;
         const currentRide = toolResults.getCurrentRide;
@@ -673,9 +1161,9 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
             } else {
                 statusText = "Because the driver has already been dispatched for more than 3 minutes, a standard ₹50 driver compensation fee may apply.\n\n";
             }
-            statusText += "To cancel your ride safely, please tap the 'Confirm Cancellation' button in your ride panel.";
+            statusText += "To cancel your ride safely, please say 'Cancel my ride' or tap the cancel button.";
         } else {
-            statusText = "You do not have an active ride right now.\n\nTribo Cancellation Policy:\n• Free cancellation within 3 minutes of booking.\n• ₹50 standard fee applies after 3 minutes once the driver commences travel.\n• No fee is charged if a driver cancels or is stationary for more than 5 minutes.";
+            statusText = "You do not have an active ride right now.\n\nDrivo Cancellation Policy:\n• Free cancellation within 3 minutes of booking.\n• ₹50 standard fee applies after 3 minutes once the driver commences travel.\n• No fee is charged if a driver cancels or is stationary for more than 5 minutes.";
         }
 
         return {
@@ -685,7 +1173,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 8. Driver Current Rider
+    // 14. Driver Current Rider
     if (intent === 'DRIVER_CURRENT_RIDER') {
         const res = toolResults.getCurrentRider;
         if (!res || !res.success) {
@@ -697,7 +1185,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         }
         if (!res.hasActiveRide) {
             return {
-                answer: "You do not have an active trip assigned at the moment. Stay online in the Tribo Captain app to receive incoming ride dispatches!",
+                answer: "You do not have an active trip assigned at the moment. Stay online in the Drivo Captain app to receive incoming ride dispatches!",
                 cardType: null,
                 cardData: null
             };
@@ -716,7 +1204,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 9. Driver Earnings
+    // 15. Driver Earnings
     if (intent === 'DRIVER_EARNINGS') {
         const res = toolResults.getDriverEarnings;
         if (!res || !res.success) {
@@ -737,7 +1225,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 10. Driver Performance Stats
+    // 16. Driver Performance Stats
     if (intent === 'DRIVER_PERFORMANCE_STATS') {
         const stats = toolResults.getDriverStats;
         const rating = toolResults.getDriverRating;
@@ -760,7 +1248,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 11. Driver Repositioning & Hotspots
+    // 17. Driver Repositioning & Hotspots
     if (intent === 'DRIVER_REPOSITIONING') {
         const reposition = toolResults.getNearbyDemandZones;
         const hotspots = toolResults.getDemandHotspots;
@@ -784,7 +1272,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 12. Fare and Surge Explanation (Blended)
+    // 18. Fare and Surge Explanation (Blended)
     if (intent === 'FARE_AND_SURGE_EXPLANATION') {
         const fareRes = toolResults.getRideFare;
         let response = '';
@@ -800,7 +1288,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         if (ragChunks?.length) {
             response += `Policy Context:\n${ragChunks[0].content}\n\n(Source: ${ragChunks[0].title})`;
         } else if (!fareRes?.hasRide) {
-            response += "Tribo fares are computed as: Base Fare + Distance Charges + Duration Charges, multiplied by dynamic surge if active during peak demand periods.";
+            response += "Drivo fares are computed as: Base Fare + Distance Charges + Duration Charges, multiplied by dynamic surge if active during peak demand periods.";
         }
 
         return {
@@ -810,7 +1298,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
         };
     }
 
-    // 13. Policy RAG Answers (General help, FAQs, cancellations, payments, safety)
+    // 19. Policy RAG Answers (General help, FAQs, cancellations, payments, safety)
     if (ragChunks && ragChunks.length > 0) {
         const topChunk = ragChunks[0];
         const additional = ragChunks.length > 1 ? `\n\n${ragChunks[1].content}` : '';
@@ -822,7 +1310,7 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
     }
 
     return {
-        answer: "I'm Zen, your Tribo AI Assistant. I can help you check your driver's live location, ETA, ride fare breakdown, cancellation policies, and payment receipts. How can I assist you right now?",
+        answer: "I'm your Drivo AI Assistant. I can help you book a ride, check your driver's live location, ETA, ride fare breakdown, cancellation policies, and payment receipts. How can I assist you right now?",
         cardType: null,
         cardData: null
     };
@@ -832,25 +1320,27 @@ function synthesizeGroundedAnswer(cleanQuery, intent, toolResults = {}, ragChunk
 
 /**
  * Builds system prompt instructing the LLM to follow the Live Data Rule,
- * strict grounding, and authorization boundaries.
+ * strict grounding, two-step confirmation, and authorization boundaries.
  */
 function buildSystemPrompt(authContext = {}, ragContext = '', toolsContext = '') {
     const roleName = authContext.role === 'admin' ? 'Operations Admin' : (authContext.captainId ? 'Driver Partner' : 'Rider');
-    return `You are Zen, the official intelligent AI customer support copilot for Tribo (the next-generation urban ride-hailing platform).
+    return `You are the official intelligent AI Customer Assistant for Drivo (D-R-I-V-O), the modern urban ride-hailing platform.
 Currently speaking with: ${roleName} (ID: ${authContext.userId || authContext.captainId || 'guest'}).
 
 MANDATORY RULES:
-1. LIVE DATA RULE: For live or customer-specific information (driver location, driver arrival, trip ETA, ride status, ride history, fares, earnings), ALWAYS rely strictly on the backend tools. NEVER invent or hallucinate driver names, license plates, locations, distances, or arrival times.
-2. If backend tools show no active ride or no driver assigned, state that fact clearly to the user.
-3. STATIC KNOWLEDGE & RAG: For policies, FAQs, cancellation rules, refunds, payment options, and how Tribo works, use the provided knowledge base context or call searchKnowledgeBase.
-4. ACTION SAFETY: For cancellations or ride bookings, explain the status/policy and instruct the user to confirm via their in-app button. DO NOT execute destructive changes without confirmation.
-5. SECURITY & TENANT ISOLATION: A customer may ONLY access their own rides and profile. Never fulfill requests to view another customer's or driver's private data.
-6. TONE: Professional, friendly, concise, and helpful. Format your responses with clean markdown bullet points where appropriate.
+1. BRAND NAME: The platform name is strictly "Drivo". Never refer to it by any other name.
+2. LIVE DATA RULE: For live or customer-specific information (driver location, driver arrival, trip ETA, ride status, ride history, fares, earnings), ALWAYS rely strictly on the backend tools. NEVER invent or hallucinate driver names, license plates, locations, distances, or arrival times.
+3. If backend tools show no active ride or no driver assigned, state that fact clearly to the user.
+4. STATIC KNOWLEDGE & RAG: For policies, FAQs, cancellation rules, refunds, payment options, and how Drivo works, use the provided knowledge base context or call searchKnowledgeBase.
+5. TWO-STEP BOOKING CONFIRMATION: When a user wants to book a ride, NEVER automatically book it immediately. First extract pickup, destination, and vehicle type, calculate/retrieve the estimated fare, present the confirmation summary: "You're booking a Drivo ride from [Pickup] to [Destination]. Estimated fare: ₹XXX. Would you like me to confirm the booking?", and ONLY call bookRide with confirmed: true AFTER the user explicitly confirms ("yes", "confirm", "proceed").
+6. TWO-STEP CANCELLATION CONFIRMATION: When a user wants to cancel a ride ("cancel my ride"), retrieve the active ride, explain the status and any applicable fee, ask for explicit confirmation, and ONLY call cancelRide with confirmed: true AFTER explicit user confirmation.
+7. SECURITY & TENANT ISOLATION: A customer may ONLY access their own rides and profile. Never fulfill requests to view another customer's or driver's private data.
+8. TONE: Professional, friendly, concise, and helpful. Format your responses with clean markdown bullet points where appropriate.
 
 Live Backend Data:
 ${toolsContext || 'None'}
 
-Tribo Knowledge Base Context:
+Drivo Knowledge Base Context:
 ${ragContext || 'None'}`;
 }
 
@@ -1115,13 +1605,36 @@ async function processAssistantChat(message, authContext = {}, history = []) {
                 totalRidesToday: llmResult.toolResults.getDriverEarnings.totalRides || 0,
                 rating: '4.9'
             };
+        } else if (llmResult.toolResults?.bookRide?.ride) {
+            cardType = 'booking_success';
+            cardData = { ride: llmResult.toolResults.bookRide.ride };
+        } else if (llmResult.toolResults?.cancelRide?.cancelled) {
+            cardType = 'cancel_success';
+            cardData = llmResult.toolResults.cancelRide;
+        } else if (llmResult.toolResults?.searchRideOptions?.options) {
+            cardType = 'ride_options';
+            cardData = { options: llmResult.toolResults.searchRideOptions.options };
+        } else if (llmResult.toolResults?.estimateFare?.fare) {
+            cardType = 'booking_confirmation';
+            cardData = {
+                pickup: llmResult.toolResults.estimateFare.pickup,
+                destination: llmResult.toolResults.estimateFare.destination,
+                vehicleType: llmResult.toolResults.estimateFare.vehicleType || 'car',
+                estimatedFare: llmResult.toolResults.estimateFare.fare
+            };
+        } else if (llmResult.toolResults?.contactSupport) {
+            cardType = 'contact_support';
+            cardData = llmResult.toolResults.contactSupport;
+        } else if (llmResult.toolResults?.updateDestination?.ride) {
+            cardType = 'destination_updated';
+            cardData = llmResult.toolResults.updateDestination;
         }
 
         const suggestedActions = isAdmin
             ? ["Platform revenue today", "Active rides count", "Flagged ride anomalies", "Citywide demand hotspots"]
             : isCaptain
                 ? ["Where is my rider?", "Today's earnings", "What is my acceptance rate?", "Where is demand high?"]
-                : ["Where is my driver?", "What's my ETA?", "Show my recent rides", "What is the cancellation policy?"];
+                : ["🚗 Book a Ride", "📍 Where is my driver?", "🧾 Show my recent rides", "❌ Cancel my ride", "💰 Available ride options", "🆘 Contact support"];
 
         return {
             success: true,
@@ -1166,7 +1679,7 @@ async function processAssistantChat(message, authContext = {}, history = []) {
         ? ['Platform revenue today', 'Active rides count', 'Flagged ride anomalies', 'Citywide demand hotspots']
         : isCaptain
             ? ['Where is my rider?', "Today's earnings", 'What is my acceptance rate?', 'Where is demand high?']
-            : ['Where is my driver?', "What's my ETA?", 'Show my recent rides', 'What is the cancellation policy?'];
+            : ['🚗 Book a Ride', '📍 Where is my driver?', '🧾 Show my recent rides', '❌ Cancel my ride', '💰 Available ride options', '🆘 Contact support'];
 
     return {
         success: true,
@@ -1181,7 +1694,7 @@ async function processAssistantChat(message, authContext = {}, history = []) {
             requiresLiveData: routing.requiresLiveData,
             requiresRAG: routing.requiresRAG,
             userRole: isAdmin ? 'admin' : (isCaptain ? 'driver' : 'rider'),
-            engine: 'Tribo-Semantic-Hybrid-Agent'
+            engine: 'Drivo-Semantic-Hybrid-Agent'
         },
         suggestedActions
     };

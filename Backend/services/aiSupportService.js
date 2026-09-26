@@ -653,7 +653,7 @@ async function resolveQueryDeterministically(query, authContext) {
 
         // Default captain greeting
         return {
-            text: `👋 Hi Captain! I'm **Zen**, your AI driving assistant. Ask me anything about your shift:\n\n• "Where is my rider?"\n• "What is the pickup location?"\n• "How much have I earned today?"\n• "What is my acceptance rate?"\n• "What is my cancellation rate?"`,
+            text: `👋 Hi Captain! I'm your **Drivo Copilot**, your AI driving assistant. Ask me anything about your shift:\n\n• "Where is my rider?"\n• "What is the pickup location?"\n• "How much have I earned today?"\n• "What is my acceptance rate?"\n• "What is my cancellation rate?"`,
             cardType: 'welcome',
             suggestedActions: ['Where is my rider?', "Today's earnings?", 'What is my acceptance rate?', 'What is my cancellation rate?'],
             source: 'captain_greeting'
@@ -907,7 +907,7 @@ async function resolveQueryDeterministically(query, authContext) {
 
     // Default general assistance
     return {
-        text: `👋 Hi, I'm **Zen**, your Drivo AI Ride Assistant! I can help you in real time with:\n\n• "Where is my driver?"\n• "What's my ETA?"\n• "Who is my driver?"\n• "What is my ride status?"\n• "How much did my last ride cost?"\n• "Show me my latest ride details"\n• "Why was surge pricing applied?"\n• "What was the distance of my last ride?"\n• "Cancel my ride"\n\nHow can I help with your journey today?`,
+        text: `👋 Hi, I'm your **Drivo AI Assistant**! I can help you in real time with:\n\n• "Book a ride from Salt Lake to Park Street"\n• "Where is my driver?"\n• "What's my ETA?"\n• "Who is my driver?"\n• "What is my ride status?"\n• "How much did my last ride cost?"\n• "Show me my latest ride details"\n• "Cancel my ride"\n\nHow can I help with your journey today?`,
         cardType: 'welcome',
         source: 'general_greeting'
     };
@@ -946,7 +946,7 @@ async function askZenSupport(query, authContext = null) {
     // If GEMINI_API_KEY is configured and user is rider, attempt Gemini tool calling with fallback
     if (process.env.GEMINI_API_KEY && userType !== 'captain') {
         try {
-            const systemPrompt = `You are Zen, the intelligent AI customer support assistant for Drivo Ride-Hailing.
+            const systemPrompt = `You are the intelligent Drivo AI Customer Assistant for Drivo Ride-Hailing.
 Answer the customer's query using real tools. Never invent driver names, locations, or ETAs.
 Customer User ID: ${userId || 'guest'}.`;
 

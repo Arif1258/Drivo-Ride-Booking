@@ -6,7 +6,7 @@
  * 2. Multi-turn Conversational Memory & Pronoun Resolution
  * 3. Live Data Grounding & No Hallucination rule
  * 4. Hybrid Intelligence (Mixed queries: Live Data + RAG)
- * 5. Static Knowledge RAG (FAQs, Cancellation, Payment Methods, How Tribo works)
+ * 5. Static Knowledge RAG (FAQs, Cancellation, Payment Methods, How Drivo works)
  * 6. Action Safety & Confirmation Guidance
  * 7. Tenant Isolation & Security
  */
@@ -15,7 +15,7 @@ const { processAssistantChat, classifyIntentAndRouting, resolveConversationalCon
 const { searchKnowledgeBase } = require('../services/ai/ragService');
 const assistantTools = require('../services/ai/assistantTools');
 
-describe('Tribo Generative AI Customer Assistant', () => {
+describe('Drivo Generative AI Customer Assistant', () => {
     const riderAuth = {
         userId: '60d5ec49f1b2c82b8c847c22',
         role: 'user'
@@ -90,7 +90,7 @@ describe('Tribo Generative AI Customer Assistant', () => {
             expect(res.answer.toLowerCase()).toContain('cancel');
         });
 
-        test('understands "How do I book a ride?" using Tribo guide', async () => {
+        test('understands "How do I book a ride?" using Drivo guide', async () => {
             const res = await processAssistantChat("How do I book a ride?", riderAuth);
             expect(res.success).toBe(true);
             expect(res.answer.toLowerCase()).toContain('ride');

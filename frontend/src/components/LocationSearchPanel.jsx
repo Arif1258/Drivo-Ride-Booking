@@ -22,12 +22,12 @@ const LocationSearchPanel = ({ suggestions, setVehiclePanel, setPanelOpen, setPi
                     <div 
                         key={idx} 
                         onClick={() => handleSuggestionClick(elem)} 
-                        className='flex gap-4 border border-gray-100 hover:border-black active:border-black rounded-xl p-3 items-center cursor-pointer transition-all hover:scale-[1.005] hover:bg-gray-50/50'
+                        className='flex gap-3.5 border border-slate-200/80 hover:border-slate-800 active:border-slate-900 rounded-xl p-3.5 items-center cursor-pointer transition-all hover:bg-slate-50'
                     >
-                        <div className='h-8 w-8 bg-gray-150 text-gray-500 rounded-full flex items-center justify-center flex-shrink-0'>
-                            <MapPin className='h-4 w-4' />
+                        <div className='h-8 w-8 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center flex-shrink-0'>
+                            <MapPin className='h-4 w-4 text-slate-600' />
                         </div>
-                        <h4 className='font-semibold text-sm text-gray-750 line-clamp-1'>{elem}</h4>
+                        <h4 className='font-semibold text-sm text-slate-800 line-clamp-1'>{elem}</h4>
                     </div>
                 ))
             )}
