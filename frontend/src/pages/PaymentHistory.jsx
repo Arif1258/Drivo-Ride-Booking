@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { notyf } from '../utils/notyf';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const SAMPLE_PAYMENTS = [
     {
@@ -306,6 +307,8 @@ const PaymentHistory = () => {
 
             </div>
             </main>
+
+            <Footer />
 
             {/* Top-up Modal */}
             {topUpModal && (

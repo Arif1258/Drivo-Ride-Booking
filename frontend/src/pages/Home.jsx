@@ -460,12 +460,14 @@ const Home = () => {
             </div>
 
             {/* Sliding overlays for booking steps */}
-            <div ref={vehiclePanelRef} className='fixed w-full z-30 bottom-0 translate-y-full bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
+            <div ref={vehiclePanelRef} className='fixed left-0 right-0 max-w-xl mx-auto z-30 bottom-0 translate-y-full bg-white px-4 sm:px-6 pt-3 pb-5 sm:pb-6 rounded-t-3xl shadow-2xl max-h-[85dvh] sm:max-h-[80vh] flex flex-col border-t sm:border-x sm:border-slate-200/80'>
                 <VehiclePanel
                     selectVehicle={setVehicleType}
                     fare={fare} 
                     setConfirmRidePanel={setConfirmRidePanel} 
-                    setVehiclePanel={setVehiclePanel} 
+                    setVehiclePanel={setVehiclePanel}
+                    pickup={pickup}
+                    destination={destination}
                 />
             </div>
 
@@ -482,7 +484,7 @@ const Home = () => {
                 />
             )}
 
-            <div ref={vehicleFoundRef} className='fixed w-full z-30 bottom-0 translate-y-full bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
+            <div ref={vehicleFoundRef} className='fixed left-0 right-0 max-w-xl mx-auto z-30 bottom-0 translate-y-full bg-white px-4 sm:px-6 pt-3 pb-5 sm:pb-6 rounded-t-3xl shadow-2xl max-h-[85dvh] sm:max-h-[80vh] flex flex-col border-t sm:border-x sm:border-slate-200/80 overflow-y-auto'>
                 <LookingForDriver
                     ride={ride}
                     createRide={createRide}
@@ -495,7 +497,7 @@ const Home = () => {
                 />
             </div>
 
-            <div ref={waitingForDriverRef} className='fixed w-full z-30 bottom-0 translate-y-full bg-white px-6 py-8 rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto'>
+            <div ref={waitingForDriverRef} className='fixed left-0 right-0 max-w-xl mx-auto z-30 bottom-0 translate-y-full bg-white px-4 sm:px-6 pt-3 pb-5 sm:pb-6 rounded-t-3xl shadow-2xl max-h-[85dvh] sm:max-h-[80vh] flex flex-col border-t sm:border-x sm:border-slate-200/80 overflow-y-auto'>
                 <WaitingForDriver
                     ride={ride}
                     cancelRide={cancelRide}

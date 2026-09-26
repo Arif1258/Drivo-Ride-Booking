@@ -17,6 +17,7 @@ import {
 import { UserDataContext } from '../context/UserContext';
 import { notyf } from '../utils/notyf';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const Profile = () => {
     const { user, setUser } = useContext(UserDataContext);
@@ -270,6 +271,8 @@ const Profile = () => {
 
             </div>
             </main>
+
+            <Footer />
         </div>
     );
 };

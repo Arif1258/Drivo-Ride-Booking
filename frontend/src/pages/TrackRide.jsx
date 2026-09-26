@@ -19,6 +19,7 @@ import {
 import LiveTracking from '../components/LiveTracking';
 import { notyf } from '../utils/notyf';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const TrackRide = () => {
     const [ride, setRide] = useState(null);
@@ -288,6 +289,8 @@ const TrackRide = () => {
 
             </div>
             </main>
+
+            <Footer />
         </div>
     );
 };

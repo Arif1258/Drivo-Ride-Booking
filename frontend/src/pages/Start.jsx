@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Shield, Clock, Zap, MapPin, Sparkles, Star, Users } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const Start = () => {
   return (
@@ -144,14 +145,7 @@ const Start = () => {
       </main>
 
       {/* Footer */}
-      <footer className='w-full max-w-7xl mx-auto px-6 py-6 border-t border-white/5 z-10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4'>
-        <p>© 2026 Drivo Inc. All rights reserved.</p>
-        <div className='flex gap-6'>
-          <a href="#" className='hover:text-slate-300 transition-colors'>Safety & Guidelines</a>
-          <a href="#" className='hover:text-slate-300 transition-colors'>Privacy Policy</a>
-          <a href="#" className='hover:text-slate-300 transition-colors'>Terms of Service</a>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

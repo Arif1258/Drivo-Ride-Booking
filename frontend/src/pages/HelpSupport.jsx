@@ -17,6 +17,7 @@ import {
 import SupportAssistantModal from '../components/SupportAssistantModal';
 import { notyf } from '../utils/notyf';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const FAQS = [
     {
@@ -269,6 +270,8 @@ const HelpSupport = () => {
 
                 </div>
             </main>
+
+            <Footer />
 
             {/* AI Assistant Modal Integration */}
             <SupportAssistantModal

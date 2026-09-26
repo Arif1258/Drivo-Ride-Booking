@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { notyf } from '../utils/notyf';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const INITIAL_NOTIFICATIONS = [
     {
@@ -240,6 +241,8 @@ const Notifications = () => {
 
             </div>
             </main>
+
+            <Footer />
         </div>
     );
 };

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { notyf } from '../utils/notyf';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const SAMPLE_RIDES = [
     {
@@ -386,6 +387,8 @@ const MyRides = () => {
 
             </div>
             </main>
+
+            <Footer />
         </div>
     );
 };

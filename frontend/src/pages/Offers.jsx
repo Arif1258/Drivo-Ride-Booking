@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { notyf } from '../utils/notyf';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const OFFERS = [
     {
@@ -214,6 +215,8 @@ const Offers = () => {
 
             </div>
             </main>
+
+            <Footer />
         </div>
     );
 };
