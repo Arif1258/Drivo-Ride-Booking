@@ -240,7 +240,7 @@ const TrackRide = () => {
                                 No Active Ride in Transit
                             </h2>
                             <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
-                                You currently don't have an ongoing trip. When you confirm a ride, your driver's real-time GPS telemetry, vehicle details, and arrival countdown will appear here.
+                                You currently don&apos;t have an ongoing trip. When you confirm a ride, your driver&apos;s real-time GPS telemetry, vehicle details, and arrival countdown will appear here.
                             </p>
                         </div>
 

@@ -13,7 +13,7 @@ const LocationSearchPanel = ({ suggestions, setVehiclePanel, setPanelOpen, setPi
 
     return (
         <div className='p-4 space-y-2.5'>
-            {suggestions.length === 0 ? (
+            {(!suggestions || suggestions.length === 0) ? (
                 <div className='text-center py-6 text-xs text-gray-400 font-semibold uppercase tracking-wider'>
                     Start typing to see address suggestions...
                 </div>

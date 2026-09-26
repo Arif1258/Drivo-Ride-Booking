@@ -122,7 +122,7 @@ const Offers = () => {
                                 Invite Friends, Earn ₹150 Drivo Cash
                             </h2>
                             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                                Give your friends 50% off their first ride. When they complete their trip, you'll receive ₹150 directly in your Drivo Wallet balance!
+                                Give your friends 50% off their first ride. When they complete their trip, you&apos;ll receive ₹150 directly in your Drivo Wallet balance!
                             </p>
                         </div>
 

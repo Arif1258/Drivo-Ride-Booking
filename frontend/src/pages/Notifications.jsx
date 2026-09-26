@@ -170,7 +170,7 @@ const Notifications = () => {
                         </div>
                         <h3 className="text-lg font-bold text-white">No notifications in this category</h3>
                         <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                            You're all caught up! Important ride updates, promo vouchers, and safety alerts will appear here.
+                            You&apos;re all caught up! Important ride updates, promo vouchers, and safety alerts will appear here.
                         </p>
                     </div>
                 ) : (

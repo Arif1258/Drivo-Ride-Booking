@@ -43,8 +43,11 @@ const CaptainProtectWrapper = ({
 
     if (isLoading) {
         return (
-            <div>Loading...</div>
-        )
+            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center space-y-4">
+                <div className="h-10 w-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-xs font-semibold text-slate-400">Verifying captain session...</p>
+            </div>
+        );
     }
 
 

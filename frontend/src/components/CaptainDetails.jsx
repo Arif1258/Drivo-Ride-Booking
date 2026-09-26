@@ -34,7 +34,9 @@ const CaptainDetails = () => {
             <div className='flex items-center justify-between'>
                 <div className='flex items-center justify-start gap-3'>
                     <img className='h-10 w-10 rounded-full object-cover' src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRdlMd7stpWUCmjpfRjUsQ72xSWikidbgaI1w&s" alt="" />
-                    <h4 className='text-lg font-medium capitalize'>{captain.fullname.firstname + " " + captain.fullname.lastname}</h4>
+                    <h4 className='text-lg font-medium capitalize'>
+                        {captain?.fullname?.firstname ? `${captain.fullname.firstname} ${captain.fullname.lastname || ''}` : 'Captain'}
+                    </h4>
                 </div>
                 <div className='text-right'>
                     <Link to='/captain-earnings' className='hover:underline'>
@@ -45,12 +47,12 @@ const CaptainDetails = () => {
             </div>
             <div className='flex p-3 mt-6 bg-gray-100 rounded-xl justify-around items-center'>
                 <div className='text-center'>
-                    <span className='text-xs font-bold text-amber-600 block'>⭐ {captain.rating || 4.8}</span>
+                    <span className='text-xs font-bold text-amber-600 block'>⭐ {captain?.rating || 4.8}</span>
                     <h5 className='text-base font-bold text-slate-900'>Rating</h5>
                     <p className='text-[11px] text-gray-500 font-medium'>5.0 Star Target</p>
                 </div>
                 <div className='text-center border-x border-gray-200 px-3'>
-                    <span className='text-xs font-bold text-emerald-600 block'>{captain.acceptanceRate || 96}%</span>
+                    <span className='text-xs font-bold text-emerald-600 block'>{captain?.acceptanceRate || 96}%</span>
                     <h5 className='text-base font-bold text-slate-900'>Acceptance</h5>
                     <p className='text-[11px] text-gray-500 font-medium'>High Priority Tier</p>
                 </div>

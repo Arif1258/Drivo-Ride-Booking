@@ -40,7 +40,7 @@ const FinishRide = (props) => {
                 <div className='flex items-center gap-3 '>
                     <img className='h-12 w-12 rounded-full object-cover border border-yellow-300 shadow' src="https://i.pinimg.com/236x/af/26/28/af26280b0ca305be47df0b799ed1b12b.jpg" alt="Passenger" />
                     <div>
-                        <h2 className='text-base font-bold text-gray-800 capitalize'>{props.ride?.user.fullname.firstname}</h2>
+                        <h2 className='text-base font-bold text-gray-800 capitalize'>{props.ride?.user?.fullname?.firstname || 'Passenger'}</h2>
                         <span className='text-[10px] bg-yellow-600 text-white font-bold uppercase px-2 py-0.5 rounded'>Passenger</span>
                     </div>
                 </div>
