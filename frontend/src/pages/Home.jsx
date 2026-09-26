@@ -10,9 +10,10 @@ import LookingForDriver from '../components/LookingForDriver';
 import WaitingForDriver from '../components/WaitingForDriver';
 import { SocketContext } from '../context/SocketContext';
 import { UserDataContext } from '../context/UserContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import LiveTracking from '../components/LiveTracking';
 import SupportAssistantModal from '../components/SupportAssistantModal';
+import Navbar from '../components/Navbar';
 import { MapPin, Navigation, ArrowLeft, History, PieChart, LogOut, Bot, Sparkles } from 'lucide-react';
 
 const Home = () => {
@@ -41,8 +42,18 @@ const Home = () => {
     const touchStartYRef = useRef(null);
 
     const navigate = useNavigate();
+    const location = useLocation();
     const { socket } = useContext(SocketContext);
     const { user } = useContext(UserDataContext);
+
+    // Auto-prefill if rebooked from My Rides history
+    useEffect(() => {
+        if (location.state?.rebookPickup) {
+            setPickup(location.state.rebookPickup);
+            setDestination(location.state.rebookDestination || '');
+            setPanelOpen(true);
+        }
+    }, [location.state]);
 
     useEffect(() => {
         console.log('🔌 User joining socket - userId:', user._id);
@@ -340,47 +351,20 @@ const Home = () => {
     }
 
     return (
-        <div className='h-screen relative overflow-hidden font-sans bg-slate-550'>
+        <div className='h-screen relative overflow-hidden font-sans bg-slate-950 flex flex-col'>
             {/* Header: Brand & Navigation */}
-            <div className='absolute left-6 top-6 z-25 flex items-center gap-3 pointer-events-none'>
-                <div className='h-11 w-11 bg-gradient-to-tr from-slate-900 to-indigo-950 border border-white/20 text-white rounded-2xl flex items-center justify-center shadow-2xl pointer-events-auto backdrop-blur-md'>
-                    <span className='font-black text-2xl tracking-tighter text-white'>D</span>
-                </div>
-                <div className='hidden sm:flex items-center gap-2 bg-slate-900/90 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg text-xs font-bold pointer-events-auto'>
-                    <span className='tracking-tight'>Drivo</span>
-                    {aiEtaInfo && (
-                        <>
-                            <span className='h-3 w-px bg-white/20'></span>
-                            <Sparkles className='h-3.5 w-3.5 text-blue-400' />
-                            <span>AI ETA: <strong className='text-blue-400'>{aiEtaInfo.aiEtaMinutes} mins</strong></span>
-                        </>
-                    )}
-                </div>
-            </div>
+            <Navbar />
 
-            <div className='absolute right-6 top-6 z-25 flex gap-2 print:hidden'>
-                {/* AI Support Assistant Button */}
-                <button
-                    onClick={() => setSupportOpen(true)}
-                    className='h-11 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-xl shadow-indigo-500/25 flex items-center gap-2 rounded-full hover:scale-105 active:scale-95 transition-all text-xs font-bold border border-white/20'
-                    title="AI Support Assistant"
-                >
-                    <Bot className='h-4 w-4' />
-                    <span className='hidden sm:inline'>Drivo AI</span>
-                </button>
-                <Link to='/payments' className='h-11 w-11 bg-white/95 backdrop-blur-md shadow-xl border border-slate-200/80 flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all text-slate-800 hover:text-indigo-600' title="Payment History">
-                    <History className='h-5 w-5' />
-                </Link>
-                <Link to='/admin-analytics' className='h-11 w-11 bg-white/95 backdrop-blur-md shadow-xl border border-slate-200/80 flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all text-slate-800 hover:text-indigo-600' title="Admin Analytics">
-                    <PieChart className='h-5 w-5' />
-                </Link>
-                <Link to='/user/logout' className='h-11 w-11 bg-white/95 backdrop-blur-md shadow-xl border border-slate-200/80 flex items-center justify-center rounded-full hover:scale-105 active:scale-95 transition-all text-rose-600 hover:bg-rose-50' title="Logout">
-                    <LogOut className='h-5 w-5' />
-                </Link>
-            </div>
+            {/* AI ETA Floating Badge */}
+            {aiEtaInfo && (
+                <div className='absolute top-20 left-6 z-25 flex items-center gap-2 bg-slate-900/90 backdrop-blur-md text-white px-3.5 py-1.5 rounded-full border border-white/10 shadow-lg text-xs font-bold'>
+                    <Sparkles className='h-3.5 w-3.5 text-blue-400' />
+                    <span>AI ETA: <strong className='text-blue-400'>{aiEtaInfo.aiEtaMinutes} mins</strong></span>
+                </div>
+            )}
 
             {/* Live Map */}
-            <div ref={mapContainerRef} style={{ height: '100vh' }} className='w-screen z-10'>
+            <div ref={mapContainerRef} className='flex-1 w-screen z-10 relative'>
                 <LiveTracking pickup={pickup} destination={destination} ride={ride} />
             </div>
 

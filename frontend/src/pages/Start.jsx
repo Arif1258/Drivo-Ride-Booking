@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Shield, Clock, Zap, MapPin, Sparkles, Star, Users } from 'lucide-react';
+import Navbar from '../components/Navbar';
 
 const Start = () => {
   return (
@@ -10,30 +11,8 @@ const Start = () => {
       <div className='absolute top-0 left-0 w-[550px] h-[550px] bg-blue-600/10 rounded-full blur-[140px] pointer-events-none -translate-x-1/3 -translate-y-1/3'></div>
       <div className='absolute bottom-0 right-0 w-[650px] h-[650px] bg-indigo-600/10 rounded-full blur-[160px] pointer-events-none translate-x-1/4 translate-y-1/4'></div>
 
-      {/* Header */}
-      <header className='w-full max-w-7xl mx-auto px-6 py-6 flex items-center justify-between z-10'>
-        <div className='flex items-center gap-3'>
-          <div className='h-11 w-11 bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/25 ring-2 ring-white/10'>
-            <span className='font-black text-2xl tracking-tighter text-white'>D</span>
-          </div>
-          <div>
-            <span className='text-2xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent'>Drivo</span>
-            <span className='text-[10px] text-blue-400 font-bold block -mt-1 tracking-wider uppercase'>Intelligent Mobility</span>
-          </div>
-        </div>
-        <div className='flex items-center gap-3'>
-          <span className='hidden sm:inline-flex items-center gap-1.5 px-3 py-1 text-[10px] uppercase font-bold tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full backdrop-blur-sm'>
-            <Sparkles className='h-3 w-3 text-blue-400' />
-            AI-Powered Dispatch
-          </span>
-          <Link 
-            to='/login'
-            className='text-xs font-semibold text-slate-300 hover:text-white px-3.5 py-1.5 rounded-full border border-white/10 hover:border-white/20 transition-all'
-          >
-            Sign In
-          </Link>
-        </div>
-      </header>
+      {/* Navbar */}
+      <Navbar />
 
       {/* Hero Section */}
       <main className='flex-1 max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center z-10 py-10 sm:py-16'>
